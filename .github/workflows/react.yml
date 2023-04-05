@@ -1,0 +1,44 @@
+name: Build and Test React Code
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CI: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: nix develop -c
+        working-directory: clients/browser
+    steps:
+      - uses: styfle/cancel-workflow-action@0.11.0
+        name: Cancel Outdated Builds
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v3
+        name: Checkout Repository
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v18
+
+      - name: Lint
+        run: npx eslint src
+
+      - name: Audit
+        run: npm audit --omit dev
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        timeout-minutes: 30
+        run: npm test
