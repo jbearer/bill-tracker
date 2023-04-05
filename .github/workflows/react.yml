@@ -28,7 +28,7 @@ jobs:
         name: Checkout Repository
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v18
+        uses: cachix/install-nix-action@v20
 
       - name: Lint
         run: npx eslint src
