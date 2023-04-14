@@ -11,13 +11,10 @@ pub struct State {
     /// The full name of this state.
     name: String,
     /// Bills introduced in this state.
-    #[class(plural)]
     bills: Many<D, Bill>,
     /// Legislators serving in this state.
-    #[class(plural)]
     legislators: Many<D, Legislator>,
     /// Districts making up this state.
-    #[class(plural)]
     districts: Many<D, District>,
 }
 
@@ -34,7 +31,6 @@ pub struct District {
     /// at-large district with ID "AL".
     id: String,
     /// Representatives of this district in the state legislature.
-    #[class(plural)]
     representatives: Many<D, Legislator>,
 }
 
@@ -55,10 +51,8 @@ pub struct Bill {
     /// The state in which this bill was introduced.
     state: State,
     /// Legislators sponsoring the bill.
-    #[class(plural)]
     sponsors: Many<D, Legislator>,
     /// Issues that the bill relates to.
-    #[class(plural)]
     issues: Many<D, Issue>,
 }
 
@@ -74,7 +68,6 @@ pub struct Legislator {
     /// The legislator's political party.
     party: Party,
     /// Bills the legislator has sponsored.
-    #[class(plural)]
     sponsored_bills: Many<D, Bill>,
 }
 
@@ -91,7 +84,6 @@ pub struct Party {
     /// The full name of the party.
     name: String,
     /// State lawmakers who are members of this party.
-    #[class(plural)]
     members: Many<D, Legislator>,
 }
 
@@ -101,7 +93,6 @@ pub struct Issue {
     /// A short name for the issue.
     name: String,
     /// Bills pertaining to this issue.
-    #[class(plural)]
     bills: Many<D, Bill>,
 }
 

@@ -53,7 +53,6 @@ mod helpers;
 ///     #[class(primary)]
 ///     singular: u64,
 ///     /// A plural field.
-///     #[class(plural)]
 ///     plural: Many<D, u64>,
 ///     /// A field that is not exposed to GraphQL.
 ///     #[class(skip)]
@@ -173,7 +172,6 @@ mod helpers;
 /// # struct MyClass {
 /// #     #[class(primary)]
 /// #     singular: u64,
-/// #     #[class(plural)]
 /// #     plural: Many<D, u64>,
 /// #     #[class(skip)]
 /// #     extra: WeirdType,
@@ -240,18 +238,19 @@ mod helpers;
 ///
 /// # Struct attributes
 ///
-/// | Attribute     | Description                                             | Type    | Required |
+/// | Attribute     | Description                                             | Arg     | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
 /// | plural        | Override the default pluralization of the struct name. The default simply appends an `s`. | ident | no |
 /// | module        | Override the default module name for derived items. The name defaults to the snake_case version of the struct name. | ident | no |
 ///
 /// # Field attributes
 ///
-/// | Attribute     | Description                                             | Type    | Required |
+/// | Attribute     | Description                                             | Arg    | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
-/// | plural        | Mark this as a plural field. By default, any field with type `Many<...>` is considered plural. This attribute can be used to pluralize a field with a different type or type alias. | bool | no |
-/// | primary       | Mark this field as primary. The primary field may be used in place of the whole object in GraphQL predicates. A struct can have at most one primary field. | bool | no |
-/// | skip          | Do not include this field in the GraphQL types.         | bool    | no       |
+/// | plural        | Mark this as a plural field. By default, any field with type `Many<...>` is considered plural. This attribute can be used to pluralize a field with a different type or type alias. | n/a | no |
+/// | plural        | Explicitly set whether this field is plural or not by providing a `bool` literal. This can be used to override implicitly plural types like `Many`. | bool | no |
+/// | primary       | Mark this field as primary. The primary field may be used in place of the whole object in GraphQL predicates. A struct can have at most one primary field. | n/a | no |
+/// | skip          | Do not include this field in the GraphQL types.         | n/a    | no       |
 ///
 #[proc_macro_derive(Class, attributes(class))]
 pub fn graphql_class(input: TokenStream) -> TokenStream {
@@ -315,7 +314,7 @@ pub fn graphql_class(input: TokenStream) -> TokenStream {
 ///
 /// # Struct attributes
 ///
-/// | Attribute     | Description                                             | Type    | Required |
+/// | Attribute     | Description                                             | Arg     | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
 /// | class         | Class which should included in the ontology             | field   | yes      |
 #[proc_macro_derive(Query, attributes(query))]

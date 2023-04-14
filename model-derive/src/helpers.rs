@@ -2,10 +2,11 @@
 
 use itertools::Itertools;
 use proc_macro2::TokenStream;
+use std::borrow::Borrow;
 use syn::{
     parenthesized,
     parse::{Parse, Parser},
-    Attribute, Expr, Field, Ident, Lit, Meta,
+    Attribute, Expr, Ident, Lit, Meta,
 };
 
 /// Convenient parsing interface for helper attributes.
@@ -21,14 +22,37 @@ impl AttrParser {
         Self(scope.into())
     }
 
-    /// Check if a field has a certain boolean attribute.
+    /// Check if a list of attributes has a certain boolean attribute.
     ///
     /// # Panics
     ///
-    /// Panics if `f` has an attribute in this scope which is malformed (e.g. it's name is
+    /// Panics if `attrs` has an attribute in this scope which is malformed (e.g. it's name is
     /// `self.scope()` but its meta attribute does not start with an identifier).
-    pub fn has_bool(&self, f: &Field, name: &str) -> bool {
-        f.attrs.iter().any(|a| self.is_bool_attr(a, name))
+    pub fn has_bool<I>(&self, attrs: I, name: &str) -> bool
+    where
+        I: IntoIterator,
+        I::Item: Borrow<Attribute>,
+    {
+        attrs
+            .into_iter()
+            .any(|a| self.is_bool_attr(a.borrow(), name))
+    }
+
+    /// Check if a list of attributes has a certain attribute and return its argument.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `attrs` has an attribute in this scope which is malformed (e.g. it's name is
+    /// `self.scope()` but its meta attribute does not start with an identifier) or if the attribute
+    /// exists but its argument does not parse as a `T`.
+    pub fn get_arg<T: Parse, I>(&self, attrs: I, name: &str) -> Option<T>
+    where
+        I: IntoIterator,
+        I::Item: Borrow<Attribute>,
+    {
+        attrs
+            .into_iter()
+            .find_map(|a| self.parse_arg(a.borrow(), name))
     }
 
     /// Check if `a` is a certain attribute and return its argument.

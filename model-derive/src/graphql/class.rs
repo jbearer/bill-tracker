@@ -5,7 +5,9 @@ use crate::helpers::{parse_docs, AttrParser};
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{Attribute, Data, DataStruct, DeriveInput, Field, Fields, Ident, Visibility};
+use syn::{
+    Attribute, Data, DataStruct, DeriveInput, Field, Fields, Ident, LitBool, Type, Visibility,
+};
 
 /// Derive a `Class` instance for a struct.
 pub fn derive(
@@ -42,20 +44,18 @@ fn generate_struct(
     let fields = fields
         .named
         .into_iter()
-        .filter(|f| !p.has_bool(f, "skip"))
+        .filter(|f| !p.has_bool(&f.attrs, "skip"))
         .collect::<Vec<_>>();
 
     // Get the plural name for this struct. If it is given explicitly via the `plural` attribute we
     // will use that; otherwise just add an `s`.
-    let plural_name = attrs
-        .iter()
-        .find_map(|a| p.parse_arg(a, "plural"))
+    let plural_name = p
+        .get_arg(&attrs, "plural")
         .unwrap_or_else(|| format_ident!("{}s", name));
 
     // Derive a name for the module that will contain the generated items;
-    let mod_name = attrs
-        .iter()
-        .find_map(|a| p.parse_arg(a, "module"))
+    let mod_name = p
+        .get_arg(&attrs, "module")
         .unwrap_or_else(|| Ident::new(&name.to_string().to_case(Case::Snake), Span::call_site()));
 
     // Get the documentation on this struct. We will need to add this to the generated `#[Object]`
@@ -84,7 +84,7 @@ fn generate_struct(
     // addition to filtering by applying a predicate to its fields, you can implicitly filter based
     // on the primary field, which leads to shorter, more readable queries. In particular, you can
     // say, e.g. `state CA` instead of `state with abbreviation CA`.
-    let primary_field = fields.iter().find(|f| p.has_bool(f, "primary"));
+    let primary_field = fields.iter().find(|f| p.has_bool(&f.attrs, "primary"));
     // The `is` predicate based on the primary field.
     let is_primary = primary_field.as_ref().map(|f| {
         let ty = &f.ty;
@@ -235,5 +235,22 @@ fn generate_resolver(p: &AttrParser, f: &Field) -> TokenStream {
 }
 
 fn field_is_plural(p: &AttrParser, f: &Field) -> bool {
-    p.has_bool(f, "plural")
+    // Check if the field is explicitly plural.
+    if p.has_bool(&f.attrs, "plural") {
+        return true;
+    }
+    let explicit: Option<LitBool> = p.get_arg(&f.attrs, "plural");
+    let explicit = explicit.map(|lit| lit.value);
+    if explicit == Some(true) {
+        return true;
+    }
+
+    // Check if the field has an implicitly plural type (e.g. `Many`). If not, it is not plural.
+    let Type::Path(path) = &f.ty else { return false; };
+    let Some(type_name) = path.path.segments.last() else { return false; };
+    if type_name.ident == "Many" && explicit != Some(false) {
+        return true;
+    }
+    // If the field is not explicitly or implicitly plural, it is not plural.
+    false
 }
