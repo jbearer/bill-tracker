@@ -1,0 +1,21 @@
+[package]
+name = "model"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jeb Bearer <jeb.bearer@gmail.com>"]
+
+[features]
+default = ["clap"]
+
+[[bin]]
+name = "gen-schema"
+required-features = ["clap"]
+
+[dependencies]
+async-graphql = "5.0"
+async-trait = "0.1"
+derivative = "2.2"
+model-derive = { path = "../model-derive" }
+snafu = "0.7"
+
+clap = { version = "4.2", features = ["derive"], optional = true }

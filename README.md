@@ -1,5 +1,15 @@
 Social bill tracker and civil engagement platform.
 
+# Structure
+
+The project is organized as followed:
+
+* [clients](clients) contains various client implementations for the app.
+    - [browser](clients/browser) a browser-based client application, built with React/Typescript.
+* [model](model) defines the data model provided by the server. It is a Rust crate.
+* [model-derive](model-derive) defines derive macros for use with the `model` crate.
+* [server](server) implements the server application which makes the data queryable for clients.
+
 # Development
 
 ## Get the code
