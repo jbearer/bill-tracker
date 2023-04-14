@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["IssuePredicate","A predicate used to filter Issues."],["IssuesPredicate","A predicate used to filter collections of Issues."]],"struct":[["IssueHas","A predicate on fields of Issue."],["QuantifiedIssuePredicate","A predicate which must match a certain quantity of Issues."]]};

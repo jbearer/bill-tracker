@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["PostgreSqlError","Errors reported by the SQL layer."]],"struct":[["PostgreSqlConnection","A paginated connection to a set of rows."],["PostgreSqlCursor","An index into a [`PostgreSqlConnection`]."],["PostgreSqlDataSource","A data source for the bill tracker API implemented using a PostgreSQL database."]]};

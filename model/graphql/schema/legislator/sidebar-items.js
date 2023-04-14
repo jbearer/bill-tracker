@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["LegislatorPredicate","A predicate used to filter Legislators."],["LegislatorsPredicate","A predicate used to filter collections of Legislators."]],"struct":[["LegislatorHas","A predicate on fields of Legislator."],["QuantifiedLegislatorPredicate","A predicate which must match a certain quantity of Legislators."]]};

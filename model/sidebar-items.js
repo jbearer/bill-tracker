@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["graphql","Instantiation of the data model for GraphQL queries."],["sql","Instantiation of the data model for a relational database (specifically PostgreSQL)."]]};

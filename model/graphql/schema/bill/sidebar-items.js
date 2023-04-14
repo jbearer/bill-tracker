@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["BillPredicate","A predicate used to filter Bills."],["BillsPredicate","A predicate used to filter collections of Bills."]],"struct":[["BillHas","A predicate on fields of Bill."],["QuantifiedBillPredicate","A predicate which must match a certain quantity of Bills."]]};
