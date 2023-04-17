@@ -5,8 +5,8 @@ use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 use syn::Ident;
 
-pub mod class;
 pub mod query;
+pub mod resource;
 
 /// The path of the `model::graphql` module in the scope invoking a procedural macro.
 fn graphql_path() -> TokenStream {

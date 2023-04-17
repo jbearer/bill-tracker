@@ -1,4 +1,4 @@
-//! Derive macro for the top-level GraphQL queries over an ontology of `Class` types.
+//! Derive macro for the top-level GraphQL queries over an ontology of `Resource` types.
 
 use super::graphql_path;
 use crate::helpers::{parse_docs, AttrParser};
@@ -36,27 +36,27 @@ fn generate_struct(name: Ident, attrs: Vec<Attribute>) -> TokenStream {
     // block so it shows up in the exported schema.
     let doc = parse_docs(&attrs);
 
-    // Get the list of classes in the ontology.
-    let classes = attrs
+    // Get the list of resources in the ontology.
+    let resources = attrs
         .iter()
-        .flat_map(|a| p.parse_arg_with(a, "class", Field::parse_named));
+        .flat_map(|a| p.parse_arg_with(a, "resource", Field::parse_named));
 
-    // Generate resolvers for each class.
-    let resolvers = classes.map(|class| {
-        let name = class.ident.unwrap();
-        let ty = class.ty;
+    // Generate resolvers for each resource.
+    let resolvers = resources.map(|resource| {
+        let name = resource.ident.unwrap();
+        let ty = resource.ty;
         let doc = format!("Search for {}.", name);
         quote! {
             #[doc = #doc]
             async fn #name(
                 &self,
                 #[graphql(name = "where")]
-                pred: Option<<#ty as Class>::Predicate>,
+                pred: Option<<#ty as Type>::Predicate>,
                 after: Option<String>,
                 before: Option<String>,
                 first: Option<usize>,
                 last: Option<usize>,
-            ) -> Result<Connection<<D as DataSource>::Cursor<#ty, EmptyFields>, #ty>> {
+            ) -> Result<Connection<Cursor<D, #ty>, #ty>> {
                 todo!()
             }
         }
@@ -67,8 +67,8 @@ fn generate_struct(name: Ident, attrs: Vec<Attribute>) -> TokenStream {
         mod #mod_name {
             use super::*;
             use #graphql::{
-                async_graphql, connection::Connection, traits::DataSource, Class, D,
-                EmptyFields, Result,
+                async_graphql, connection::Connection, backend::{Cursor, DataSource},
+                type_system::Type, D, EmptyFields, Result,
             };
 
             #[Object]

@@ -6,6 +6,7 @@ authors = ["Jeb Bearer <jeb.bearer@gmail.com>"]
 
 [features]
 default = ["clap"]
+mocks = []
 
 [[bin]]
 name = "gen-schema"
@@ -15,7 +16,20 @@ required-features = ["clap"]
 async-graphql = "5.0"
 async-trait = "0.1"
 derivative = "2.2"
+derive_more = "0.99"
+is_type = "0.2"
 model-derive = { path = "../model-derive" }
+sealed = "0.4"
 snafu = "0.7"
 
+# SQL dependencies
+async-postgres = "0.5"
+async-std = { version = "1.12", features = ["attributes"] }
+bytes = "0.5"
+convert_case = "0.6"
+futures = "0.3"
+itertools = "0.10"
+tokio-postgres = { version = "0.5", default-features = false, features = ["runtime"] }
+
+# Bin dependencies
 clap = { version = "4.2", features = ["derive"], optional = true }

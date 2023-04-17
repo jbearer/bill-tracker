@@ -2,5 +2,7 @@
 
 pub use super::{
     async_graphql::{self, value},
-    Class, Object, Query, Schema,
+    backend::Many,
+    type_system::{Resource, Scalar, Type},
+    EmptyMutation, EmptySubscription, Object, Query, Schema, D,
 };

@@ -1,12 +1,12 @@
 //! The schema describing the entities and relationships in the GraphQL API.
 
-use super::{traits::Many, types::*, D};
+use super::prelude::*;
 
 /// A US state.
-#[derive(Clone, Debug, Class)]
+#[derive(Clone, Debug, Resource)]
 pub struct State {
     /// The 2-letter abbreviation for this state as recognized by the US postal service.
-    #[class(primary)]
+    #[resource(primary)]
     abbreviation: String,
     /// The full name of this state.
     name: String,
@@ -19,7 +19,7 @@ pub struct State {
 }
 
 /// A subdivision of a [`State`] with its own representatives in the state legislature.
-#[derive(Clone, Debug, Class)]
+#[derive(Clone, Debug, Resource)]
 pub struct District {
     /// The state containing this district.
     state: State,
@@ -35,7 +35,7 @@ pub struct District {
 }
 
 /// A piece of legislation.
-#[derive(Clone, Debug, Class)]
+#[derive(Clone, Debug, Resource)]
 pub struct Bill {
     /// The name of the bill.
     ///
@@ -57,7 +57,7 @@ pub struct Bill {
 }
 
 /// A state lawmaker.
-#[derive(Clone, Debug, Class)]
+#[derive(Clone, Debug, Resource)]
 pub struct Legislator {
     /// The legislator's legal name.
     name: String,
@@ -72,14 +72,14 @@ pub struct Legislator {
 }
 
 /// A political party.
-#[derive(Clone, Debug, Class)]
-#[class(plural(Parties))]
+#[derive(Clone, Debug, Resource)]
+#[resource(plural(Parties))]
 pub struct Party {
     /// A shortened form of the party's name.
     ///
     /// This is frequently a single letter as in "R" (for Republican) or "D" (for Democrat). For
     /// obscure parties, though, this may be as long as the full name of the party.
-    #[class(primary)]
+    #[resource(primary)]
     abbreviation: String,
     /// The full name of the party.
     name: String,
@@ -88,7 +88,7 @@ pub struct Party {
 }
 
 /// A political issue.
-#[derive(Clone, Debug, Class)]
+#[derive(Clone, Debug, Resource)]
 pub struct Issue {
     /// A short name for the issue.
     name: String,
@@ -98,12 +98,12 @@ pub struct Issue {
 
 /// Entrypoint for read-only GraphQL queries.
 #[derive(Clone, Copy, Debug, Query)]
-#[query(class(bills: Bill))]
-#[query(class(legislators: Legislator))]
-#[query(class(states: State))]
-#[query(class(districts: District))]
-#[query(class(parties: Party))]
-#[query(class(issues: Issue))]
+#[query(resource(bills: Bill))]
+#[query(resource(legislators: Legislator))]
+#[query(resource(states: State))]
+#[query(resource(districts: District))]
+#[query(resource(parties: Party))]
+#[query(resource(issues: Issue))]
 pub struct Query;
 
 /// Create the schema for the GraphQL API.
