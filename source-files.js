@@ -1,6 +1,6 @@
 var sourcesIndex = JSON.parse('{\
-"model":["",[["graphql",[],["prelude.rs","scalars.rs","schema.rs","traits.rs","types.rs"]]],["graphql.rs","lib.rs","sql.rs"]],\
-"model_derive":["",[["graphql",[],["class.rs","query.rs"]]],["graphql.rs","helpers.rs","lib.rs"]],\
+"model":["",[["graphql",[],["backend.rs","prelude.rs","schema.rs","type_system.rs"]],["sql",[["db",[],["postgres.rs"]]],["data_source.rs","db.rs","type_system.rs"]]],["graphql.rs","lib.rs","sql.rs"]],\
+"model_derive":["",[["graphql",[],["query.rs","resource.rs"]]],["graphql.rs","helpers.rs","lib.rs"]],\
 "server":["",[],["lib.rs"]]\
 }');
 createSourceSidebar();

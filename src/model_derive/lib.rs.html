@@ -227,101 +227,6 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Derive macros for the `model` crate.
 
 </span><span class="kw">use </span>proc_macro::TokenStream;
@@ -330,11 +235,11 @@
 <span class="kw">mod </span>graphql;
 <span class="kw">mod </span>helpers;
 
-<span class="doccomment">/// Derive an implementation of `Class`, and related items, for a struct.
+<span class="doccomment">/// Derive an implementation of `Resource`, and related items, for a struct.
 ///
-/// This macro will derive an implementation of `Class` for a struct, along with all of the
-/// necessary types to describe the class&#39;s predicate and plural predicate. It will also generate an
-/// `async_graphql` `#[Object]` `impl` block with resolvers for each of the structs fields.
+/// This macro will derive an implementation of `Resource` for a struct, along with all of the
+/// necessary types to describe the resource&#39;s predicate and plural predicate. It will also generate
+/// an `async_graphql` `#[Object]` `impl` block with resolvers for each of the structs fields.
 ///
 /// Specifically, the following items are generated:
 /// * An `#[Object]` `impl` block with a resolver for each field. For singular fields, the resolver
@@ -342,147 +247,52 @@
 ///   [`skip`](#field-attributes) attribute to avoid generating the resolver for fields which are
 ///   not output types. For plural fields, the resolver is paginated: it takes Relay-style paging
 ///   arguments and loads the appropriate page of results on demand.
+/// * A unit struct for each field of the original struct, containing metadata about the field via
+///   the `Field` or `PluralField` trait. These are generated in a nested module called `fields`.
 /// * A _has_ predicate, which is a GraphQL input type allowing the client to apply a filter to any
 ///   of the struct&#39;s fields.
-/// * A _singular predicate_ used to filter items of this class. The predicate is an enum with one
-///   variant for the _has_ predicate and, if the struct has a [`primary`](#field-attributes),
+/// * A _singular predicate_ used to filter items of this resource. The predicate is an enum with
+///   one variant for the _has_ predicate and, if the struct has a [`primary`](#field-attributes),
 ///   another variant to filter directly by the primary field.
-/// * A _quantified predicate_ which applies to a collection of items of this class by requiring
+/// * A _quantified predicate_ which applies to a collection of items of this resource by requiring
 ///   that a certain number of items in the collection match the _singular predicate_.
-/// * A _plural predicate_ which applies to a collection of items of this class. The plural
+/// * A _plural predicate_ which applies to a collection of items of this resource. The plural
 ///   predicate is an enum which has variants requiring that at least or at most _n_ items match a
 ///   singular predicate, that any, all, or none items match a singular predicate, and, if the
 ///   struct has a primary field, that the collection includes a given value of the primary field.
 ///
-/// All of these are generated as public items in a module with the same visibility as the original
-/// struct. The name of the module is, by default, the name of the struct converted to snake_case.
-/// This can be changed with the [`module`](#struct-attributes) attribute.
+/// All of these items are placed in a module with the same visibility as the original struct. The
+/// items have the same visibility as the original struct, unless the original struct is private, in
+/// which case the generated items are `pub(super)` (so that they are visible one level up from the
+/// generated module, in the scope where the original struct was defined). The name of the generated
+/// module is, by default, the name of the struct converted to snake_case. This can be changed with
+/// the [`module`](#struct-attributes) attribute.
 ///
 /// Documentation (doc comments or the `#[doc = &quot;...&quot;]` attribute) on the struct and its fields is
 /// automatically propagated to derived items and will appear in the exported GraphQL schema.
 ///
 /// # Examples
 ///
-/// ## Derive a `Class`.
+/// ## Derive a `Resource`.
 /// ```
 /// # mod example {
 /// use model::graphql::prelude::*;
-/// use model::graphql::{traits::Many, D};
 ///
-/// /// A new class.
-/// #[derive(Class)]
-/// #[class(plural(MyClasses))]
-/// struct MyClass {
+/// /// A new resource.
+/// #[derive(Clone, Resource)]
+/// struct MyResource {
 ///     /// A singular field.
-///     #[class(primary)]
+///     #[resource(primary)]
 ///     singular: u64,
 ///     /// A plural field.
-///     #[class(plural)]
 ///     plural: Many&lt;D, u64&gt;,
 ///     /// A field that is not exposed to GraphQL.
-///     #[class(skip)]
+///     #[resource(skip)]
 ///     extra: WeirdType,
 /// }
 ///
+/// #[derive(Clone, Default)]
 /// struct WeirdType;
-/// # }
-/// ```
-///
-/// ## Generated code.
-///
-/// ```
-/// # mod example {
-/// # use model::graphql::prelude::*;
-/// # use model::graphql::{traits::Many, D};
-/// # struct MyClass {
-/// #     singular: u64,
-/// #     plural: Many&lt;D, u64&gt;,
-/// #     extra: WeirdType,
-/// # }
-/// # struct WeirdType;
-/// mod my_class {
-///     use super::*;
-///     use model::graphql::{*, connection::Connection, scalars::Value, traits::DataSource};
-///
-///     #[doc = &quot;A new class.&quot;]
-///     #[Object]
-///     impl MyClass {
-///         #[doc = &quot;A singular field.&quot;]
-///         async fn singular(&amp;self) -&gt; &amp;u64 {
-///             &amp;self.singular
-///         }
-///
-///         #[doc = &quot;A plural field.&quot;]
-///         async fn plural(
-///             &amp;self,
-///             #[graphql(name = &quot;where&quot;)]
-///             filter: Option&lt;&lt;&lt;Many&lt;D, u64&gt; as Plural&gt;::Singular as Class&gt;::Predicate&gt;,
-///             after: Option&lt;String&gt;,
-///             before: Option&lt;String&gt;,
-///             first: Option&lt;usize&gt;,
-///             last: Option&lt;usize&gt;,
-///         ) -&gt; Result&lt;
-///             Connection&lt;
-///                 &lt;D as DataSource&gt;::Cursor&lt;
-///                     &lt;Many&lt;D, u64&gt; as Plural&gt;::Singular, EmptyFields
-///                 &gt;,
-///                 &lt;Many&lt;D, u64&gt; as Plural&gt;::Singular,
-///             &gt;
-///         &gt;
-///         {
-///             // Implementation omitted.
-/// #           todo!()
-///         }
-///     }
-///
-///     #[doc = &quot;A predicate on fields of MyClass.&quot;]
-///     #[derive(Clone, Debug, InputObject)]
-///     pub struct MyClassHas {
-///         singular: Option&lt;&lt;u64 as Class&gt;::Predicate&gt;,
-///         plural: Option&lt;&lt;&lt;Many&lt;D, u64&gt; as Plural&gt;::Singular as Class&gt;::PluralPredicate&gt;,
-///     }
-///
-///     #[doc = &quot;A predicate used to filter MyClasses.&quot;]
-///     #[derive(Clone, Debug, OneofObject)]
-///     pub enum MyClassPredicate {
-///         /// Filter by fields.
-///         Has(MyClassHas),
-///         /// Filter by value.
-///         Is(&lt;u64 as Class&gt;::Predicate),
-///     }
-///
-///     #[doc = &quot;A predicate which must match a certain quantity of MyClasses.&quot;]
-///     #[derive(Clone, Debug, InputObject)]
-///     pub struct QuantifiedMyClassPredicate {
-///         /// The minimum or maximum number of items which must match.
-///         quantity: usize,
-///         /// The predicate to match against specific items.
-///         predicate: MyClassPredicate,
-///     }
-///
-///     #[doc = &quot;A predicate used to filter collections of MyClasses.&quot;]
-///     #[derive(Clone, Debug, OneofObject)]
-///     pub enum MyClassesPredicate {
-///         /// Matches if at least some number of items in the collection match a predicate.
-///         AtLeast(QuantifiedMyClassPredicate),
-///         /// Matches if at most some number of items in the collection match a predicate.
-///         AtMost(QuantifiedMyClassPredicate),
-///         /// Matches if at any items in the collection match a predicate.
-///         Any(MyClassPredicate),
-///         /// Matches if all items in the collection match a predicate.
-///         All(MyClassPredicate),
-///         /// Matches if no items in the collection match a predicate.
-///         None(MyClassPredicate),
-///         /// Matches if the collection includes the specified value.
-///         Includes(Value&lt;u64&gt;),
-///     }
-///
-///     impl Class for MyClass {
-///         type Plural = Many&lt;D, Self&gt;;
-///         type Predicate = MyClassPredicate;
-///         type PluralPredicate = MyClassesPredicate;
-///     }
-/// }
 /// # }
 /// ```
 ///
@@ -491,29 +301,27 @@
 /// ```
 /// # mod example {
 /// # use model::graphql::prelude::*;
-/// # use model::graphql::{traits::Many, D};
-/// # #[derive(Class)]
-/// # #[class(plural(MyClasses))]
-/// # struct MyClass {
-/// #     #[class(primary)]
+/// # #[derive(Clone, Resource)]
+/// # struct MyResource {
+/// #     #[resource(primary)]
 /// #     singular: u64,
-/// #     #[class(plural)]
 /// #     plural: Many&lt;D, u64&gt;,
-/// #     #[class(skip)]
+/// #     #[resource(skip)]
 /// #     extra: WeirdType,
 /// # }
+/// # #[derive(Clone, Default)]
 /// # struct WeirdType;
-/// use model::graphql::{traits::Connection, EmptyFields, EmptyMutation, EmptySubscription};
+/// use model::graphql::{backend::Connection, EmptyFields, EmptyMutation, EmptySubscription};
 ///
 /// struct Query;
 ///
 /// #[Object]
 /// impl Query {
-///     async fn my_class(
+///     async fn my_resource(
 ///         &amp;self,
-///         #[graphql(name = &quot;where&quot;)] filter: my_class::MyClassPredicate,
-///     ) -&gt; MyClass {
-///         MyClass {
+///         #[graphql(name = &quot;where&quot;)] filter: &lt;MyResource as Type&gt;::Predicate,
+///     ) -&gt; MyResource {
+///         MyResource {
 ///             singular: 0,
 ///             plural: Many::&lt;D, u64&gt;::empty(EmptyFields),
 ///             extra: WeirdType,
@@ -527,7 +335,7 @@
 /// // Query by field.
 /// schema
 ///     .execute(&quot;{
-///         myClass(
+///         myResource(
 ///             where: {
 ///                 has: {
 ///                     plural: {
@@ -546,7 +354,7 @@
 /// // Query by primary field.
 /// schema
 ///     .execute(&quot;{
-///         myClass(
+///         myResource(
 ///             where: {
 ///                 is: { is: { lit: 0 } }
 ///             }
@@ -564,41 +372,43 @@
 ///
 /// # Struct attributes
 ///
-/// | Attribute     | Description                                             | Type    | Required |
+/// | Attribute     | Description                                             | Arg     | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
 /// | plural        | Override the default pluralization of the struct name. The default simply appends an `s`. | ident | no |
 /// | module        | Override the default module name for derived items. The name defaults to the snake_case version of the struct name. | ident | no |
 ///
 /// # Field attributes
 ///
-/// | Attribute     | Description                                             | Type    | Required |
+/// | Attribute     | Description                                             | Arg    | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
-/// | plural        | Mark this as a plural field. By default, any field with type `Many&lt;...&gt;` is considered plural. This attribute can be used to pluralize a field with a different type or type alias. | bool | no |
-/// | primary       | Mark this field as primary. The primary field may be used in place of the whole object in GraphQL predicates. A struct can have at most one primary field. | bool | no |
-/// | skip          | Do not include this field in the GraphQL types.         | bool    | no       |
+/// | plural        | Mark this as a plural field. By default, any field with type `Many&lt;...&gt;` is considered plural. This attribute can be used to pluralize a field with a different type or type alias. | n/a | no |
+/// | plural        | Explicitly set whether this field is plural or not by providing a `bool` literal. This can be used to override implicitly plural types like `Many`. | bool | no |
+/// | primary       | Mark this field as primary. The primary field may be used in place of the whole object in GraphQL predicates. A struct can have at most one primary field. | n/a | no |
+/// | skip          | Do not include this field in the GraphQL types. The type of the field must implement [`Default`], unless an explicit default initializer is provided (the second form). | n/a | no |
+/// | skip          | Skip a field, reconstructing it with the given expression when loading this object. | expr | no |
 ///
-</span><span class="attr">#[proc_macro_derive(Class, attributes(class))]
-</span><span class="kw">pub fn </span>graphql_class(input: TokenStream) -&gt; TokenStream {
-    graphql::class::derive(<span class="macro">parse_macro_input!</span>(input)).into()
+</span><span class="attr">#[proc_macro_derive(Resource, attributes(resource))]
+</span><span class="kw">pub fn </span>graphql_resource(input: TokenStream) -&gt; TokenStream {
+    graphql::resource::derive(<span class="macro">parse_macro_input!</span>(input)).into()
 }
 
 <span class="doccomment">/// Derive resolvers for top-level query fields in a GraphQL API.
 ///
 /// This macro generates an `async_graphql` `#[Object]` `impl` block for a struct, which includes
-/// resolvers for a number of given class types. These classes act as the entrypoints to an
-/// ontology, the rest of which is implied by the transitive closure of the entrypoint classes&#39;
+/// resolvers for a number of given resource types. These resources act as the entrypoints to an
+/// ontology, the rest of which is implied by the transitive closure of the entrypoint resources&#39;
 /// fields.
 ///
-/// The classes to include as entrypoints are given using the `class` attribute, as in
-/// `#[query(class(entrypoint: ClassType))]`. `entrypoint` is the name of the GraphQL field which
-/// will be generated on the query object. It must be a Rust identifier (but will be converted from
-/// snake case to camel case in the GraphQL schema). `ClassType` is the type of items in the
-/// collection returned by `entrypoint`. You may specify multiple entrypoints that result to the
-/// same class type as long as they have different names.
+/// The resources to include as entrypoints are given using the `resource` attribute, as in
+/// `#[query(resource(entrypoint: ResourceType))]`. `entrypoint` is the name of the GraphQL field
+/// which will be generated on the query object. It must be a Rust identifier (but will be converted
+/// from snake case to camel case in the GraphQL schema). `ResourceType` is the type of items in the
+/// collection returned by `entrypoint`. You may specify multiple entrypoints that resolve to the
+/// same resource type as long as they have different names.
 ///
-/// Each entrypoint defined this way will generate a GraphQL field which takes the plural class
+/// Each entrypoint defined this way will generate a GraphQL field which takes the plural resource
 /// inputs (a `where` predicate and Relay paging inputs) and produces a paginated connection of
-/// items of the class type matching the `where` clause.
+/// items of the resource type matching the `where` clause.
 ///
 /// # Examples
 ///
@@ -606,14 +416,14 @@
 /// # mod example {
 /// use model::graphql::{prelude::*, EmptyMutation, EmptySubscription};
 ///
-/// #[derive(Class)]
-/// struct MyClass {
-///     #[class(primary)]
+/// #[derive(Clone, Resource)]
+/// struct MyResource {
+///     #[resource(primary)]
 ///     field: u64,
 /// }
 ///
 /// #[derive(Query)]
-/// #[query(class(classes: MyClass))]
+/// #[query(resource(my_resources: MyResource))]
 /// struct Query;
 ///
 /// # pub async fn example() {
@@ -622,7 +432,7 @@
 /// // Query by field.
 /// schema
 ///     .execute(&quot;{
-///         classes(
+///         myResources(
 ///             where: {
 ///                 is: { is: { lit: 0 } }
 ///             }
@@ -639,9 +449,9 @@
 ///
 /// # Struct attributes
 ///
-/// | Attribute     | Description                                             | Type    | Required |
+/// | Attribute     | Description                                             | Arg     | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
-/// | class         | Class which should included in the ontology             | field   | yes      |
+/// | resource      | Resource which should included in the ontology          | field   | yes      |
 </span><span class="attr">#[proc_macro_derive(Query, attributes(query))]
 </span><span class="kw">pub fn </span>graphql_query(input: TokenStream) -&gt; TokenStream {
     graphql::query::derive(<span class="macro">parse_macro_input!</span>(input)).into()

@@ -1,0 +1,122 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Derive an implementation of `Resource`, and related items, for a struct."><meta name="keywords" content="rust, rustlang, rust-lang, Resource"><title>Resource in model::graphql::prelude - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../model/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../model/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><div class="sidebar-elems"><h2><a href="index.html">In model::graphql::prelude</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Derive Macro <a href="../../index.html">model</a>::<wbr><a href="../index.html">graphql</a>::<wbr><a href="index.html">prelude</a>::<wbr><a class="derive" href="#">Resource</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../../../src/model_derive/lib.rs.html#162">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><div class="item-decl"><pre class="rust"><code>#[derive(Resource)]
+{
+    // Attributes available to this derive:
+    #[resource]
+}
+</code></pre></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Derive an implementation of <code>Resource</code>, and related items, for a struct.</p>
+<p>This macro will derive an implementation of <code>Resource</code> for a struct, along with all of the
+necessary types to describe the resource’s predicate and plural predicate. It will also generate
+an <code>async_graphql</code> <code>#[Object]</code> <code>impl</code> block with resolvers for each of the structs fields.</p>
+<p>Specifically, the following items are generated:</p>
+<ul>
+<li>An <code>#[Object]</code> <code>impl</code> block with a resolver for each field. For singular fields, the resolver
+simply returns a reference to the field, which must be an <code>OutputType</code>. You can use the
+<a href="#field-attributes"><code>skip</code></a> attribute to avoid generating the resolver for fields which are
+not output types. For plural fields, the resolver is paginated: it takes Relay-style paging
+arguments and loads the appropriate page of results on demand.</li>
+<li>A unit struct for each field of the original struct, containing metadata about the field via
+the <code>Field</code> or <code>PluralField</code> trait. These are generated in a nested module called <code>fields</code>.</li>
+<li>A <em>has</em> predicate, which is a GraphQL input type allowing the client to apply a filter to any
+of the struct’s fields.</li>
+<li>A <em>singular predicate</em> used to filter items of this resource. The predicate is an enum with
+one variant for the <em>has</em> predicate and, if the struct has a <a href="#field-attributes"><code>primary</code></a>,
+another variant to filter directly by the primary field.</li>
+<li>A <em>quantified predicate</em> which applies to a collection of items of this resource by requiring
+that a certain number of items in the collection match the <em>singular predicate</em>.</li>
+<li>A <em>plural predicate</em> which applies to a collection of items of this resource. The plural
+predicate is an enum which has variants requiring that at least or at most <em>n</em> items match a
+singular predicate, that any, all, or none items match a singular predicate, and, if the
+struct has a primary field, that the collection includes a given value of the primary field.</li>
+</ul>
+<p>All of these items are placed in a module with the same visibility as the original struct. The
+items have the same visibility as the original struct, unless the original struct is private, in
+which case the generated items are <code>pub(super)</code> (so that they are visible one level up from the
+generated module, in the scope where the original struct was defined). The name of the generated
+module is, by default, the name of the struct converted to snake_case. This can be changed with
+the <a href="#struct-attributes"><code>module</code></a> attribute.</p>
+<p>Documentation (doc comments or the <code>#[doc = &quot;...&quot;]</code> attribute) on the struct and its fields is
+automatically propagated to derived items and will appear in the exported GraphQL schema.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2><h3 id="derive-a-resource"><a href="#derive-a-resource">Derive a <code>Resource</code>.</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>model::graphql::prelude::<span class="kw-2">*</span>;
+
+<span class="doccomment">/// A new resource.
+</span><span class="attr">#[derive(Clone, Resource)]
+</span><span class="kw">struct </span>MyResource {
+    <span class="doccomment">/// A singular field.
+    </span><span class="attr">#[resource(primary)]
+    </span>singular: u64,
+    <span class="doccomment">/// A plural field.
+    </span>plural: Many&lt;D, u64&gt;,
+    <span class="doccomment">/// A field that is not exposed to GraphQL.
+    </span><span class="attr">#[resource(skip)]
+    </span>extra: WeirdType,
+}
+
+<span class="attr">#[derive(Clone, Default)]
+</span><span class="kw">struct </span>WeirdType;</code></pre></div>
+<h3 id="use-it-in-a-graphql-schema"><a href="#use-it-in-a-graphql-schema">Use it in a GraphQL schema.</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>model::graphql::{backend::Connection, EmptyFields, EmptyMutation, EmptySubscription};
+
+<span class="kw">struct </span>Query;
+
+<span class="attr">#[Object]
+</span><span class="kw">impl </span>Query {
+    <span class="kw">async fn </span>my_resource(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="attr">#[graphql(name = <span class="string">&quot;where&quot;</span>)] </span>filter: &lt;MyResource <span class="kw">as </span>Type&gt;::Predicate,
+    ) -&gt; MyResource {
+        MyResource {
+            singular: <span class="number">0</span>,
+            plural: Many::&lt;D, u64&gt;::empty(EmptyFields),
+            extra: WeirdType,
+        }
+    }
+}
+
+<span class="kw">let </span>schema = Schema::build(Query, EmptyMutation, EmptySubscription).finish();
+
+<span class="comment">// Query by field.
+</span>schema
+    .execute(<span class="string">&quot;{
+        myResource(
+            where: {
+                has: {
+                    plural: {
+                        any: { is: { lit: 0 } }
+                    }
+                }
+            }
+        ) {
+            singular
+        }
+    }&quot;</span>)
+    .<span class="kw">await
+    </span>.into_result()
+    .unwrap();
+
+<span class="comment">// Query by primary field.
+</span>schema
+    .execute(<span class="string">&quot;{
+        myResource(
+            where: {
+                is: { is: { lit: 0 } }
+            }
+        ) {
+            singular
+        }
+    }&quot;</span>)
+    .<span class="kw">await
+    </span>.into_result()
+    .unwrap();</code></pre></div>
+<h2 id="struct-attributes"><a href="#struct-attributes">Struct attributes</a></h2><div><table><thead><tr><th>Attribute</th><th>Description</th><th>Arg</th><th>Required</th></tr></thead><tbody>
+<tr><td>plural</td><td>Override the default pluralization of the struct name. The default simply appends an <code>s</code>.</td><td>ident</td><td>no</td></tr>
+<tr><td>module</td><td>Override the default module name for derived items. The name defaults to the snake_case version of the struct name.</td><td>ident</td><td>no</td></tr>
+</tbody></table>
+</div><h2 id="field-attributes"><a href="#field-attributes">Field attributes</a></h2><div><table><thead><tr><th>Attribute</th><th>Description</th><th>Arg</th><th>Required</th></tr></thead><tbody>
+<tr><td>plural</td><td>Mark this as a plural field. By default, any field with type <code>Many&lt;...&gt;</code> is considered plural. This attribute can be used to pluralize a field with a different type or type alias.</td><td>n/a</td><td>no</td></tr>
+<tr><td>plural</td><td>Explicitly set whether this field is plural or not by providing a <code>bool</code> literal. This can be used to override implicitly plural types like <code>Many</code>.</td><td>bool</td><td>no</td></tr>
+<tr><td>primary</td><td>Mark this field as primary. The primary field may be used in place of the whole object in GraphQL predicates. A struct can have at most one primary field.</td><td>n/a</td><td>no</td></tr>
+<tr><td>skip</td><td>Do not include this field in the GraphQL types. The type of the field must implement <a href="https://doc.rust-lang.org/1.68.2/core/default/trait.Default.html" title="Default"><code>Default</code></a>, unless an explicit default initializer is provided (the second form).</td><td>n/a</td><td>no</td></tr>
+<tr><td>skip</td><td>Skip a field, reconstructing it with the given expression when loading this object.</td><td>expr</td><td>no</td></tr>
+</tbody></table>
+</div></div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="model" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.2 (9eb3afe9e 2023-03-27)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

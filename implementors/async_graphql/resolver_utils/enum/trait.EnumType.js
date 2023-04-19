@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"model":[["impl EnumType for <a class=\"enum\" href=\"model/graphql/scalars/enum.IntCmpOp.html\" title=\"enum model::graphql::scalars::IntCmpOp\">IntCmpOp</a>"]]
+"model":[["impl EnumType for <a class=\"enum\" href=\"model/graphql/type_system/scalar/enum.IntCmpOp.html\" title=\"enum model::graphql::type_system::scalar::IntCmpOp\">IntCmpOp</a>"],["impl EnumType for <a class=\"enum\" href=\"model/graphql/type_system/scalar/enum.StringCmpOp.html\" title=\"enum model::graphql::type_system::scalar::StringCmpOp\">StringCmpOp</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

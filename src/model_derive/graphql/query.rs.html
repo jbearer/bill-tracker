@@ -79,7 +79,7 @@
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
-</pre><pre class="rust"><code><span class="doccomment">//! Derive macro for the top-level GraphQL queries over an ontology of `Class` types.
+</pre><pre class="rust"><code><span class="doccomment">//! Derive macro for the top-level GraphQL queries over an ontology of `Resource` types.
 
 </span><span class="kw">use </span><span class="kw">super</span>::graphql_path;
 <span class="kw">use </span><span class="kw">crate</span>::helpers::{parse_docs, AttrParser};
@@ -117,27 +117,27 @@
     // block so it shows up in the exported schema.
     </span><span class="kw">let </span>doc = parse_docs(<span class="kw-2">&amp;</span>attrs);
 
-    <span class="comment">// Get the list of classes in the ontology.
-    </span><span class="kw">let </span>classes = attrs
+    <span class="comment">// Get the list of resources in the ontology.
+    </span><span class="kw">let </span>resources = attrs
         .iter()
-        .flat_map(|a| p.parse_arg_with(a, <span class="string">&quot;class&quot;</span>, Field::parse_named));
+        .flat_map(|a| p.parse_arg_with(a, <span class="string">&quot;resource&quot;</span>, Field::parse_named));
 
-    <span class="comment">// Generate resolvers for each class.
-    </span><span class="kw">let </span>resolvers = classes.map(|class| {
-        <span class="kw">let </span>name = class.ident.unwrap();
-        <span class="kw">let </span>ty = class.ty;
+    <span class="comment">// Generate resolvers for each resource.
+    </span><span class="kw">let </span>resolvers = resources.map(|resource| {
+        <span class="kw">let </span>name = resource.ident.unwrap();
+        <span class="kw">let </span>ty = resource.ty;
         <span class="kw">let </span>doc = <span class="macro">format!</span>(<span class="string">&quot;Search for {}.&quot;</span>, name);
         <span class="macro">quote! </span>{
             <span class="attr">#[doc = #doc]
             </span><span class="kw">async fn </span>#name(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
                 <span class="attr">#[graphql(name = <span class="string">&quot;where&quot;</span>)]
-                </span>pred: <span class="prelude-ty">Option</span>&lt;&lt;#ty <span class="kw">as </span>Class&gt;::Predicate&gt;,
+                </span>pred: <span class="prelude-ty">Option</span>&lt;&lt;#ty <span class="kw">as </span>Type&gt;::Predicate&gt;,
                 after: <span class="prelude-ty">Option</span>&lt;String&gt;,
                 before: <span class="prelude-ty">Option</span>&lt;String&gt;,
                 first: <span class="prelude-ty">Option</span>&lt;usize&gt;,
                 last: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-            ) -&gt; <span class="prelude-ty">Result</span>&lt;Connection&lt;&lt;D <span class="kw">as </span>DataSource&gt;::Cursor&lt;#ty, EmptyFields&gt;, #ty&gt;&gt; {
+            ) -&gt; <span class="prelude-ty">Result</span>&lt;Connection&lt;Cursor&lt;D, #ty&gt;, #ty&gt;&gt; {
                 <span class="macro">todo!</span>()
             }
         }
@@ -148,8 +148,8 @@
         </span><span class="kw">mod </span>#mod_name {
             <span class="kw">use super</span>::<span class="kw-2">*</span>;
             <span class="kw">use </span>#graphql::{
-                async_graphql, connection::Connection, traits::DataSource, Class, D,
-                EmptyFields, <span class="prelude-ty">Result</span>,
+                async_graphql, connection::Connection, backend::{Cursor, DataSource},
+                type_system::Type, D, EmptyFields, <span class="prelude-ty">Result</span>,
             };
 
             <span class="attr">#[Object]

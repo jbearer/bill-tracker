@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"model":[["impl ErrorCompat for <a class=\"enum\" href=\"model/sql/enum.PostgreSqlError.html\" title=\"enum model::sql::PostgreSqlError\">PostgreSqlError</a>"]]
+"model":[["impl ErrorCompat for <a class=\"enum\" href=\"model/sql/db/postgres/enum.Error.html\" title=\"enum model::sql::db::postgres::Error\">Error</a>"],["impl ErrorCompat for <a class=\"enum\" href=\"model/sql/type_system/enum.Error.html\" title=\"enum model::sql::type_system::Error\">Error</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

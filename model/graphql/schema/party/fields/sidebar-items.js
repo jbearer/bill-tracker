@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Abbreviation","Metadata about the field Party::Abbreviation."],["Members","Metadata about the field Party::Members."],["Name","Metadata about the field Party::Name."]]};

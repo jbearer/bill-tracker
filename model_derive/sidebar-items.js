@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"derive":[["Class","Derive an implementation of `Class`, and related items, for a struct."],["Query","Derive resolvers for top-level query fields in a GraphQL API."]]};
+window.SIDEBAR_ITEMS = {"derive":[["Query","Derive resolvers for top-level query fields in a GraphQL API."],["Resource","Derive an implementation of `Resource`, and related items, for a struct."]]};

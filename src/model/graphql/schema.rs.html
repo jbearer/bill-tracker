@@ -110,40 +110,28 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The schema describing the entities and relationships in the GraphQL API.
 
-</span><span class="kw">use super</span>::{traits::Many, types::<span class="kw-2">*</span>, D};
+</span><span class="kw">use </span><span class="kw">super</span>::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A US state.
-</span><span class="attr">#[derive(Clone, Debug, Class)]
+</span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>State {
     <span class="doccomment">/// The 2-letter abbreviation for this state as recognized by the US postal service.
-    </span><span class="attr">#[class(primary)]
+    </span><span class="attr">#[resource(primary)]
     </span>abbreviation: String,
     <span class="doccomment">/// The full name of this state.
     </span>name: String,
     <span class="doccomment">/// Bills introduced in this state.
-    </span><span class="attr">#[class(plural)]
     </span>bills: Many&lt;D, Bill&gt;,
     <span class="doccomment">/// Legislators serving in this state.
-    </span><span class="attr">#[class(plural)]
     </span>legislators: Many&lt;D, Legislator&gt;,
     <span class="doccomment">/// Districts making up this state.
-    </span><span class="attr">#[class(plural)]
     </span>districts: Many&lt;D, District&gt;,
 }
 
 <span class="doccomment">/// A subdivision of a [`State`] with its own representatives in the state legislature.
-</span><span class="attr">#[derive(Clone, Debug, Class)]
+</span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>District {
     <span class="doccomment">/// The state containing this district.
     </span>state: State,
@@ -155,12 +143,11 @@
     /// at-large district with ID &quot;AL&quot;.
     </span>id: String,
     <span class="doccomment">/// Representatives of this district in the state legislature.
-    </span><span class="attr">#[class(plural)]
     </span>representatives: Many&lt;D, Legislator&gt;,
 }
 
 <span class="doccomment">/// A piece of legislation.
-</span><span class="attr">#[derive(Clone, Debug, Class)]
+</span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>Bill {
     <span class="doccomment">/// The name of the bill.
     ///
@@ -176,15 +163,13 @@
     <span class="doccomment">/// The state in which this bill was introduced.
     </span>state: State,
     <span class="doccomment">/// Legislators sponsoring the bill.
-    </span><span class="attr">#[class(plural)]
     </span>sponsors: Many&lt;D, Legislator&gt;,
     <span class="doccomment">/// Issues that the bill relates to.
-    </span><span class="attr">#[class(plural)]
     </span>issues: Many&lt;D, Issue&gt;,
 }
 
 <span class="doccomment">/// A state lawmaker.
-</span><span class="attr">#[derive(Clone, Debug, Class)]
+</span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>Legislator {
     <span class="doccomment">/// The legislator&#39;s legal name.
     </span>name: String,
@@ -195,45 +180,42 @@
     <span class="doccomment">/// The legislator&#39;s political party.
     </span>party: Party,
     <span class="doccomment">/// Bills the legislator has sponsored.
-    </span><span class="attr">#[class(plural)]
     </span>sponsored_bills: Many&lt;D, Bill&gt;,
 }
 
 <span class="doccomment">/// A political party.
-</span><span class="attr">#[derive(Clone, Debug, Class)]
-#[class(plural(Parties))]
+</span><span class="attr">#[derive(Clone, Debug, Resource)]
+#[resource(plural(Parties))]
 </span><span class="kw">pub struct </span>Party {
     <span class="doccomment">/// A shortened form of the party&#39;s name.
     ///
     /// This is frequently a single letter as in &quot;R&quot; (for Republican) or &quot;D&quot; (for Democrat). For
     /// obscure parties, though, this may be as long as the full name of the party.
-    </span><span class="attr">#[class(primary)]
+    </span><span class="attr">#[resource(primary)]
     </span>abbreviation: String,
     <span class="doccomment">/// The full name of the party.
     </span>name: String,
     <span class="doccomment">/// State lawmakers who are members of this party.
-    </span><span class="attr">#[class(plural)]
     </span>members: Many&lt;D, Legislator&gt;,
 }
 
 <span class="doccomment">/// A political issue.
-</span><span class="attr">#[derive(Clone, Debug, Class)]
+</span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>Issue {
     <span class="doccomment">/// A short name for the issue.
     </span>name: String,
     <span class="doccomment">/// Bills pertaining to this issue.
-    </span><span class="attr">#[class(plural)]
     </span>bills: Many&lt;D, Bill&gt;,
 }
 
 <span class="doccomment">/// Entrypoint for read-only GraphQL queries.
 </span><span class="attr">#[derive(Clone, Copy, Debug, Query)]
-#[query(class(bills: Bill))]
-#[query(class(legislators: Legislator))]
-#[query(class(states: State))]
-#[query(class(districts: District))]
-#[query(class(parties: Party))]
-#[query(class(issues: Issue))]
+#[query(resource(bills: Bill))]
+#[query(resource(legislators: Legislator))]
+#[query(resource(states: State))]
+#[query(resource(districts: District))]
+#[query(resource(parties: Party))]
+#[query(resource(issues: Issue))]
 </span><span class="kw">pub struct </span>Query;
 
 <span class="doccomment">/// Create the schema for the GraphQL API.

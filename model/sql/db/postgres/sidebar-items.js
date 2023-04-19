@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["Error","Errors returned by a PostgreSQL database."]],"struct":[["Config","Connection configuration."],["Connection","A connection to a PostgreSQL databsae."],["Query","A query against a PostgreSQL database."],["Row","A row of data returned from the database by a query."]]};

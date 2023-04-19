@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["District","Metadata about the field Legislator::District."],["Name","Metadata about the field Legislator::Name."],["Party","Metadata about the field Legislator::Party."],["SponsoredBills","Metadata about the field Legislator::SponsoredBills."],["State","Metadata about the field Legislator::State."]]};
