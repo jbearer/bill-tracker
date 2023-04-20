@@ -109,6 +109,9 @@ fn generate_struct(
         quote!(#name: #default,)
     });
 
+    // Generate code to visit each field of this struct.
+    let field_visitors = fields.iter().map(|f| generate_field_visitor(&p, f));
+
     // Generate predicates for each field of this struct.
     let pred_fields = fields.iter().map(|f| generate_predicate_field(&p, f));
 
@@ -166,7 +169,8 @@ fn generate_struct(
                 type_system::{
                     Builder, BuildError, Field, PluralField, PluralPredicate,
                     PluralPredicateCompiler, PluralType, Predicate, PredicateCompiler, Resource,
-                    ResourceBuilder, ResourcePredicate, ResourcePredicateCompiler, Type, Value,
+                    ResourceBuilder, ResourcePredicate, ResourcePredicateCompiler, ResourceVisitor,
+                    Type, Value,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, Result,
             };
@@ -298,6 +302,10 @@ fn generate_struct(
                         #(#skipped_field_builders)*
                     })
                 }
+
+                fn describe<V: ResourceVisitor<Self>>(visitor: V) -> V {
+                    visitor #(#field_visitors)*
+                }
             }
         }
     }
@@ -314,12 +322,13 @@ fn generate_field_meta(vis: &Visibility, resource: &Ident, f: &Field) -> TokenSt
 }
 
 fn generate_field_meta_impl(p: &AttrParser, resource: &Ident, f: &Field) -> TokenStream {
-    let name = field_meta_name(f.ident.as_ref().expect("Resource fields must be named"));
+    let name = f.ident.as_ref().expect("Resource fields must be named");
+    let meta_name = field_meta_name(name);
     let name_str = name.to_string();
     let ty = &f.ty;
     if field_is_plural(p, f) {
         quote! {
-            impl PluralField for fields::#name {
+            impl PluralField for fields::#meta_name {
                 type Type = #ty;
                 type Resource = #resource;
                 const NAME: &'static str = #name_str;
@@ -327,10 +336,14 @@ fn generate_field_meta_impl(p: &AttrParser, resource: &Ident, f: &Field) -> Toke
         }
     } else {
         quote! {
-            impl Field for fields::#name {
+            impl Field for fields::#meta_name {
                 type Type = #ty;
                 type Resource = #resource;
                 const NAME: &'static str = #name_str;
+
+                fn get(resource: &Self::Resource) -> &Self::Type {
+                    &resource.#name
+                }
             }
         }
     }
@@ -346,6 +359,20 @@ fn generate_field_builder(p: &AttrParser, f: &Field) -> TokenStream {
     } else {
         quote! {
             #name: builder.field::<fields::#meta>().map_err(B::Error::field::<fields::#meta>)?,
+        }
+    }
+}
+
+fn generate_field_visitor(p: &AttrParser, f: &Field) -> TokenStream {
+    let name = f.ident.as_ref().expect("Resource fields must be named");
+    let meta = field_meta_name(name);
+    if field_is_plural(p, f) {
+        quote! {
+            .visit_plural_field::<fields::#meta>()
+        }
+    } else {
+        quote! {
+            .visit_field::<fields::#meta>()
         }
     }
 }

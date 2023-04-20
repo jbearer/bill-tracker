@@ -788,6 +788,14 @@ pub mod resource {
         /// It is an invariant that for all `T: Resource`,
         /// `T::build(builder) == T::builder_resource(builder.resource())`.
         fn build_resource<B: ResourceBuilder<Self>>(builder: B) -> Result<Self, B::Error>;
+
+        /// Access the field `F` of this [`Resource`].
+        fn get<F: Field<Resource = Self>>(&self) -> &F::Type {
+            F::get(self)
+        }
+
+        /// Describe the structure and definition of this [`Resource`].
+        fn describe<V: ResourceVisitor<Self>>(visitor: V) -> V;
     }
 
     /// A backend specific interface to query results, used to reconstruct a [`Resource`].
@@ -847,6 +855,9 @@ pub mod resource {
 
         /// The name of the field.
         const NAME: &'static str;
+
+        /// Access this field of a particular [`Resource`].
+        fn get(resource: &Self::Resource) -> &Self::Type;
     }
 
     /// Metadata about a plural field of a resource.
@@ -864,4 +875,16 @@ pub mod resource {
     /// The [`PluralPredicate`] used to filter a resource by its [`PluralField`] `F`.
     pub type PluralFieldPredicate<F> =
         <<<F as PluralField>::Type as PluralType>::Singular as Type>::PluralPredicate;
+
+    /// Visitor which allows a [`Resource`] to describe itself to a backend.
+    ///
+    /// The implementation of this visitor will be backend-specific, but a [`Resource`] can use this
+    /// backend-agnostic interface to describe its structure and fields to any backend.
+    pub trait ResourceVisitor<T: Resource> {
+        /// Tell the visitor about a field `F` of type `T`.
+        fn visit_field<F: Field<Resource = T>>(self) -> Self;
+
+        /// Tell the visitor about a plural field `F` of type `T`.
+        fn visit_plural_field<F: PluralField<Resource = T>>(self) -> Self;
+    }
 }
