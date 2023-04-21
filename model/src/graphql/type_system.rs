@@ -90,18 +90,13 @@ pub trait PredicateCompiler<T: Type> {
     /// The backend-specific compilation result.
     type Result;
 
-    /// A compiler specifically for [`ResourcePredicate`]s.
-    type Resource: ResourcePredicateCompiler<T, Result = Self::Result>
-    where
-        T: Resource;
-
     /// A compiler specifically for [`ScalarPredicate`]s.
     type Scalar: ScalarPredicateCompiler<T, Result = Self::Result>
     where
         T: Scalar;
 
     /// Compile this predicate as a [`ResourcePredicate`].
-    fn resource(self) -> Self::Resource
+    fn resource(self, predicate: T::ResourcePredicate) -> Self::Result
     where
         T: Resource;
 
@@ -914,41 +909,24 @@ pub mod resource {
     }
 
     /// A boolean predicate on a resource type `T`.
-    pub trait ResourcePredicate<T: Resource>: Predicate<T> {
-        /// Compile this predicate into a form which the backend can execute.
+    pub trait ResourcePredicate<T: Resource<ResourcePredicate = Self>>: Predicate<T> {
+        /// Get the sub-predicate on the field `F` of resource `T`, if there is one.
+        fn get<F: Field<Resource = T>>(&self) -> Option<&<F::Type as Type>::Predicate> {
+            F::get_predicate(self)
+        }
+
+        /// Get the sub-predicate on the field `F` of resource `T`, if there is one.
+        fn get_mut<F: Field<Resource = T>>(&mut self) -> Option<&mut <F::Type as Type>::Predicate> {
+            F::get_predicate_mut(self)
+        }
+
+        /// Take the sub-predicate on the field `F` of resource `T`, if there is one.
         ///
-        /// This performs the same operation as [`compile`](Predicate::compile), but it can be
-        /// called directly with a [`ResourcePredicateCompiler`], instead of the more generic
-        /// [`PredicateCompiler`]. This is useful when it is known that a [`Predicate`] is actually
-        /// a [`ResourcePredicate`].
-        ///
-        /// It is an invariant that for all `T: ResourcePredicate` and `x: T`,
-        /// `x.compile(compiler) == x.compile_resource_predicate(compiler.resource())`.
-        fn compile_resource_predicate<C: ResourcePredicateCompiler<T>>(
-            self,
-            compiler: C,
-        ) -> C::Result;
-    }
-
-    /// A generic interface to a backend-specific compiler for predicates on a resource type `T`.
-    ///
-    /// A [`ResourcePredicate`] can use this interface to instruct an arbitrary backend on how to
-    /// compile itself into a backend-specific format.
-    pub trait ResourcePredicateCompiler<T: Resource> {
-        /// The backend-specific compilation result.
-        type Result;
-
-        /// Add a predicate on a field of this resource.
-        fn field<F: Field<Resource = T>>(self, predicate: <F::Type as Type>::Predicate) -> Self;
-
-        /// Add a predicate on a plural field of this resource.
-        fn plural_field<F: PluralField<Resource = T>>(
-            self,
-            predicate: PluralFieldPredicate<F>,
-        ) -> Self;
-
-        /// Finish compilation and extract the result.
-        fn end(self) -> Self::Result;
+        /// The next time this function or [`get`](Self::get) is called on the same field, it will
+        /// return [`None`], since the field has been taken.
+        fn take<F: Field<Resource = T>>(&mut self) -> Option<<F::Type as Type>::Predicate> {
+            F::take_predicate(self)
+        }
     }
 
     /// Metadata about a field of a resource.
@@ -964,6 +942,25 @@ pub mod resource {
 
         /// Access this field of a particular [`Resource`].
         fn get(resource: &Self::Resource) -> &Self::Type;
+
+        /// Access the sub-predicate used to filter this field in a [`ResourcePredicate`].
+        fn get_predicate(
+            predicate: &<Self::Resource as Resource>::ResourcePredicate,
+        ) -> Option<&<Self::Type as Type>::Predicate>;
+
+        /// Access the sub-predicate used to filter this field in a [`ResourcePredicate`].
+        fn get_predicate_mut(
+            predicate: &mut <Self::Resource as Resource>::ResourcePredicate,
+        ) -> Option<&mut <Self::Type as Type>::Predicate>;
+
+        /// Take the sub-predicate used to fitler this field in a [`ResourcePredicate`].
+        ///
+        /// The next time this function, [`get_predicate`](Self::get_predicate), or
+        /// [`get_predicate_mut`](Self::get_predicate_mut) is called on the same field, it will
+        /// return [`None`], since the field has been taken.
+        fn take_predicate(
+            predicate: &mut <Self::Resource as Resource>::ResourcePredicate,
+        ) -> Option<<Self::Type as Type>::Predicate>;
     }
 
     /// Metadata about a plural field of a resource.

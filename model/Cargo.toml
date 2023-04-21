@@ -30,6 +30,7 @@ bytes = "0.5"
 convert_case = "0.6"
 futures = "0.3"
 itertools = "0.10"
+take_mut = "0.2"
 tokio-postgres = { version = "0.5", default-features = false, features = ["runtime"] }
 
 # Bin dependencies

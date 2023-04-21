@@ -4,7 +4,8 @@ use super::{
     super::db::{Connection, Row, Select, SelectColumn, SelectExt},
     column_name, scalar_to_value, table_name, value_to_scalar, Error,
 };
-use crate::graphql::type_system::{self as gql, Predicate};
+use crate::graphql::type_system::{self as gql, Predicate, ResourcePredicate};
+use take_mut::take;
 
 /// Search for items of resource `T` matching `filter`.
 pub async fn execute<C: Connection, T: gql::Resource>(
@@ -14,7 +15,7 @@ pub async fn execute<C: Connection, T: gql::Resource>(
     let table = table_name::<T>();
     let mut query = conn.select(&[SelectColumn::All], &table);
     if let Some(predicate) = filter {
-        query = compile_predicate(query, predicate);
+        query = compile_predicate::<_, T>(query, predicate);
     }
     let rows = query.many().await.map_err(Error::sql)?;
     rows.iter().map(parse_row).collect()
@@ -40,38 +41,15 @@ impl<Q: Select, T: gql::Scalar> gql::ScalarPredicateCompiler<T> for WhereConditi
     }
 }
 
-impl<Q: Select, T: gql::Resource> gql::ResourcePredicateCompiler<T> for WhereCondition<Q> {
-    type Result = Q;
-
-    fn field<F: gql::Field<Resource = T>>(
-        self,
-        _predicate: <F::Type as gql::Type>::Predicate,
-    ) -> Self {
-        unimplemented!("relations")
-    }
-
-    fn plural_field<F: gql::PluralField<Resource = T>>(
-        self,
-        _predicate: gql::PluralFieldPredicate<F>,
-    ) -> Self {
-        unimplemented!("plural relations")
-    }
-
-    fn end(self) -> Self::Result {
-        unimplemented!("relations")
-    }
-}
-
 impl<Q: Select, T: gql::Type> gql::PredicateCompiler<T> for WhereCondition<Q> {
     type Result = Q;
-    type Resource = Self where T: gql::Resource;
     type Scalar = Self where T: gql::Scalar;
 
-    fn resource(self) -> Self::Resource
+    fn resource(self, _predicate: T::ResourcePredicate) -> Q
     where
         T: gql::Resource,
     {
-        self
+        unimplemented!("relations")
     }
 
     fn scalar(self) -> Self::Scalar
@@ -82,43 +60,37 @@ impl<Q: Select, T: gql::Type> gql::PredicateCompiler<T> for WhereCondition<Q> {
     }
 }
 
-/// Compiler to turn a predicate on a resource into a `WHERE` clause on a query of that table.
-struct WhereClause<Q> {
-    query: Q,
-}
-
-impl<Q: Select, T: gql::Resource> gql::ResourcePredicateCompiler<T> for WhereClause<Q> {
-    type Result = Q;
-
-    fn field<F: gql::Field<Resource = T>>(
-        mut self,
-        predicate: <F::Type as gql::Type>::Predicate,
-    ) -> Self {
-        self.query = predicate.compile(WhereCondition {
-            column: column_name::<F>(),
-            query: self.query,
-        });
-        self
-    }
-
-    fn plural_field<F: gql::PluralField<Resource = T>>(
-        self,
-        _predicate: gql::PluralFieldPredicate<F>,
-    ) -> Self {
-        unimplemented!("plural fields")
-    }
-
-    fn end(self) -> Self::Result {
-        self.query
-    }
-}
-
 /// Compile a predicate on a resource into a `WHERE` clause on a query of that table.
-fn compile_predicate<Q: Select, T: gql::Resource, P: gql::ResourcePredicate<T>>(
-    query: Q,
-    predicate: P,
-) -> Q {
-    predicate.compile_resource_predicate(WhereClause { query })
+fn compile_predicate<Q: Select, T: gql::Resource>(query: Q, pred: T::ResourcePredicate) -> Q {
+    struct Visitor<Q, T: gql::Resource> {
+        query: Q,
+        pred: T::ResourcePredicate,
+    }
+
+    impl<Q: Select, T: gql::Resource> gql::ResourceVisitor<T> for Visitor<Q, T> {
+        type Output = Q;
+
+        fn visit_field_in_place<F: gql::Field<Resource = T>>(&mut self) {
+            if let Some(sub_pred) = self.pred.take::<F>() {
+                take(&mut self.query, |query| {
+                    sub_pred.compile(WhereCondition {
+                        column: column_name::<F>(),
+                        query,
+                    })
+                });
+            }
+        }
+
+        fn visit_plural_field_in_place<F: gql::PluralField<Resource = T>>(&mut self) {
+            unimplemented!("plural fields")
+        }
+
+        fn end(self) -> Q {
+            self.query
+        }
+    }
+
+    T::describe_resource(Visitor { query, pred })
 }
 
 /// Builder to help an object reconstruct itself from query results.

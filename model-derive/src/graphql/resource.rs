@@ -92,13 +92,36 @@ fn generate_struct(
     );
     let plural_pred_doc = format!("A predicate used to filter collections of {}.", plural_name);
 
+    // If this struct has a _primary field_, it gets a couple of extra predicate options. In
+    // addition to filtering by applying a predicate to its fields, you can implicitly filter based
+    // on the primary field, which leads to shorter, more readable queries. In particular, you can
+    // say, e.g. `state CA` instead of `state with abbreviation CA`.
+    let primary_field = fields.iter().find(|f| p.has_bool(&f.attrs, "primary"));
+    // The `is` predicate based on the primary field.
+    let is_primary = primary_field.as_ref().map(|f| {
+        let ty = &f.ty;
+        quote! {
+            /// Filter by value.
+            Is(<#ty as Type>::Predicate),
+        }
+    });
+    // The `includes` plural predicate, filtering a collection based on whether or not it contains
+    // any items with the given value for their primary field.
+    let includes_primary = primary_field.as_ref().map(|f| {
+        let ty = &f.ty;
+        quote! {
+            /// Matches if the collection includes the specified value.
+            Includes(Value<#ty>),
+        }
+    });
+
     // Generate marker types to hold metadta for each field.
     let field_metas = fields
         .iter()
         .map(|f| generate_field_meta(&export, &name, f));
     let field_meta_impls = fields
         .iter()
-        .map(|f| generate_field_meta_impl(&p, &name, f));
+        .map(|f| generate_field_meta_impl(&p, &name, &pred_name, f, primary_field));
 
     // Generate code to reconstruct each field from a builder.
     let field_builders = fields.iter().map(|f| generate_field_builder(&p, f));
@@ -143,38 +166,6 @@ fn generate_struct(
         .iter()
         .map(|f| generate_has_builder_field(&p, &export, f));
 
-    // Generate statements that compile each of the has fields into a predicate compiler.
-    let has_compilers = fields.iter().map(|f| generate_has_compiler(&p, f));
-
-    // If this struct has a _primary field_, it gets a couple of extra predicate options. In
-    // addition to filtering by applying a predicate to its fields, you can implicitly filter based
-    // on the primary field, which leads to shorter, more readable queries. In particular, you can
-    // say, e.g. `state CA` instead of `state with abbreviation CA`.
-    let primary_field = fields.iter().find(|f| p.has_bool(&f.attrs, "primary"));
-    // The `is` predicate based on the primary field.
-    let is_primary = primary_field.as_ref().map(|f| {
-        let ty = &f.ty;
-        quote! {
-            /// Filter by value.
-            Is(<#ty as Type>::Predicate),
-        }
-    });
-    // Compile the `is` predicate.
-    let is_primary_compiler = primary_field.as_ref().map(|_| {
-        quote! {
-            Self::Is(value) => unimplemented!("Is predicates"),
-        }
-    });
-    // The `includes` plural predicate, filtering a collection based on whether or not it contains
-    // any items with the given value for their primary field.
-    let includes_primary = primary_field.as_ref().map(|f| {
-        let ty = &f.ty;
-        quote! {
-            /// Matches if the collection includes the specified value.
-            Includes(Value<#ty>),
-        }
-    });
-
     // Generate resolvers for each field.
     let resolvers = fields.iter().map(|f| generate_resolver(&p, f));
 
@@ -193,7 +184,7 @@ fn generate_struct(
                     typenum, Array, Builder, BuildError, Field, FieldVisitor, PluralField,
                     PluralFieldVisitor, PluralPredicate, PluralPredicateCompiler, PluralType,
                     Predicate, PredicateCompiler, Resource, ResourceBuilder, ResourcePredicate,
-                    ResourcePredicateCompiler, Type, Value, Visitor,
+                    Type, Value, Visitor,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, Result,
             };
@@ -223,15 +214,6 @@ fn generate_struct(
 
             impl #has_name {
                 #(#has_builder_fields)*
-
-                /// Compile this predicate into a form the backend can execute.
-                #export fn compile<C: ResourcePredicateCompiler<#name>>(
-                    self,
-                    mut compiler: C,
-                ) -> C::Result {
-                    #(#has_compilers)*
-                    compiler.end()
-                }
             }
 
             #[doc = #pred_doc]
@@ -250,21 +232,11 @@ fn generate_struct(
 
             impl Predicate<#name> for #pred_name {
                 fn compile<C: PredicateCompiler<#name>>(self, compiler: C) -> C::Result {
-                    self.compile_resource_predicate(compiler.resource())
+                    compiler.resource(self)
                 }
             }
 
-            impl ResourcePredicate<#name> for #pred_name {
-                fn compile_resource_predicate<C: ResourcePredicateCompiler<#name>>(
-                    self,
-                    compiler: C,
-                ) -> C::Result {
-                    match self {
-                        Self::Has(has) => has.compile(compiler),
-                        #is_primary_compiler
-                    }
-                }
-            }
+            impl ResourcePredicate<#name> for #pred_name {}
 
             #[doc = #quant_doc]
             #[derive(Clone, Debug, InputObject)]
@@ -359,7 +331,13 @@ fn generate_field_meta(vis: &Visibility, resource: &Ident, f: &Field) -> TokenSt
     }
 }
 
-fn generate_field_meta_impl(p: &AttrParser, resource: &Ident, f: &Field) -> TokenStream {
+fn generate_field_meta_impl(
+    p: &AttrParser,
+    resource: &Ident,
+    pred_name: &Ident,
+    f: &Field,
+    primary_field: Option<&Field>,
+) -> TokenStream {
     let name = f.ident.as_ref().expect("Resource fields must be named");
     let meta_name = field_meta_name(name);
     let name_str = name.to_string();
@@ -373,6 +351,31 @@ fn generate_field_meta_impl(p: &AttrParser, resource: &Ident, f: &Field) -> Toke
             }
         }
     } else {
+        let get_primary = primary_field.map(|primary| {
+            if f.ident == primary.ident {
+                quote!(#pred_name::Is(f) => Some(f),)
+            } else {
+                quote!(#pred_name::Is(_) => None,)
+            }
+        });
+        let take_primary = primary_field.map(|primary| {
+            if f.ident == primary.ident {
+                quote!(#pred_name::Is(_) => {
+                    // If we take the primary predicate from an `Is` variant, there are no
+                    // predicates left, but `Is` requires exactly one. Thus, the predicate changes
+                    // to a `Has` variant with no fields.
+                    let #pred_name::Is(f) = std::mem::replace(
+                        predicate, #pred_name::Has(Default::default()),
+                    ) else {
+                        unreachable!();
+                    };
+                    Some(f)
+                })
+            } else {
+                quote!(#pred_name::Is(_) => None,)
+            }
+        });
+
         quote! {
             impl Field for fields::#meta_name {
                 type Type = #ty;
@@ -381,6 +384,39 @@ fn generate_field_meta_impl(p: &AttrParser, resource: &Ident, f: &Field) -> Toke
 
                 fn get(resource: &Self::Resource) -> &Self::Type {
                     &resource.#name
+                }
+
+                fn get_predicate(
+                    predicate: &#pred_name,
+                ) -> Option<&<Self::Type as Type>::Predicate> {
+                    match predicate {
+                        #pred_name::Has(has) => {
+                            has.#name.as_ref()
+                        }
+                        #get_primary
+                    }
+                }
+
+                fn get_predicate_mut(
+                    predicate: &mut #pred_name,
+                ) -> Option<&mut <Self::Type as Type>::Predicate> {
+                    match predicate {
+                        #pred_name::Has(has) => {
+                            has.#name.as_mut()
+                        }
+                        #get_primary
+                    }
+                }
+
+                fn take_predicate(
+                    predicate: &mut #pred_name,
+                ) -> Option<<Self::Type as Type>::Predicate> {
+                    match predicate {
+                        #pred_name::Has(has) => {
+                            has.#name.take()
+                        }
+                        #take_primary
+                    }
                 }
             }
         }
@@ -454,24 +490,6 @@ fn generate_has_builder_field(p: &AttrParser, vis: &Visibility, f: &Field) -> To
             #vis fn #name(mut self, pred: <#ty as Type>::Predicate) -> Self {
                 self.#name = Some(pred);
                 self
-            }
-        }
-    }
-}
-
-fn generate_has_compiler(p: &AttrParser, f: &Field) -> TokenStream {
-    let name = f.ident.as_ref().expect("Resource fields must be named");
-    let meta = field_meta_name(name);
-    if field_is_plural(p, f) {
-        quote! {
-            if let Some(pred) = self.#name {
-                compiler = compiler.plural_field::<fields::#meta>(pred);
-            }
-        }
-    } else {
-        quote! {
-            if let Some(pred) = self.#name {
-                compiler = compiler.field::<fields::#meta>(pred);
             }
         }
     }
