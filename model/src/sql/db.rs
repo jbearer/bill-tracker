@@ -1,5 +1,6 @@
 //! Abstract interface to a SQL database.
 
+use crate::{Array, Length};
 use async_trait::async_trait;
 use derive_more::{Display, From, TryInto};
 use futures::{Stream, StreamExt, TryStreamExt};
@@ -38,23 +39,36 @@ pub enum SelectColumn<'a> {
 }
 
 /// A connection to the database.
-#[async_trait]
 pub trait Connection {
     /// Errors returned from queries.
     type Error: Error;
 
-    /// A query which can be executed against the database.
-    type Query<'a>: Query<Error = Self::Error>
+    /// A `SELECT` query which can be executed against the database.
+    type Select<'a>: Select<Error = Self::Error>
+    where
+        Self: 'a;
+
+    /// An `INSERT` statement which can be executed against the database.
+    type Insert<'a, N: Length>: Insert<N, Error = Self::Error>
     where
         Self: 'a;
 
     /// Start a `SELECT` query.
     ///
-    /// `columns` indicates the columns to include in the query results. The resulting [`Query`]
+    /// `columns` indicates the columns to include in the query results. The resulting [`Select`]
     /// represents a statement of the form `SELECT columns FROM table`. The query can be refined,
-    /// for example by adding a `WHERE` clause, using the approriate methods on the [`Query`] object
+    /// for example by adding a `WHERE` clause, using the approriate methods on the [`Select`] object
     /// before running it.
-    fn select<'a>(&'a self, columns: &'a [SelectColumn<'a>], table: &'a str) -> Self::Query<'a>;
+    fn select<'a>(&'a self, columns: &'a [SelectColumn<'a>], table: &'a str) -> Self::Select<'a>;
+
+    /// Start an `INSERT` query.
+    ///
+    /// `table` indicates the table to insert into and `columns` the names of the columns in that
+    /// table into which values should be inserted.
+    fn insert<'a, C, N>(&'a self, table: &'a str, columns: Array<C, N>) -> Self::Insert<'a, N>
+    where
+        C: Into<String>,
+        N: Length;
 }
 
 /// A primitive value supported by a SQL database.
@@ -104,8 +118,8 @@ pub enum Clause {
     },
 }
 
-/// A query which can be executed against the database.
-pub trait Query: Send {
+/// A `SELECT` query which can be executed against the database.
+pub trait Select: Send {
     /// Errors returned by this query.
     type Error: Error;
     /// Rows returned by this query.
@@ -120,9 +134,9 @@ pub trait Query: Send {
     fn stream(self) -> Self::Stream;
 }
 
-/// An extension trait for [`Queries`](Query) that provides some higher-level functions.
+/// An extension trait for [`Select`] that provides some higher-level functions.
 #[async_trait]
-pub trait QueryExt: Query {
+pub trait SelectExt: Select {
     /// Add a `WHERE` clause to the query.
     fn filter(self, column: impl Into<String>, op: impl Into<String>, param: Value) -> Self;
 
@@ -145,7 +159,7 @@ pub trait QueryExt: Query {
 }
 
 #[async_trait]
-impl<T: Query> QueryExt for T {
+impl<T: Select> SelectExt for T {
     fn filter(self, column: impl Into<String>, op: impl Into<String>, param: Value) -> Self {
         self.clause(Clause::Where {
             column: column.into(),
@@ -170,6 +184,30 @@ impl<T: Query> QueryExt for T {
     async fn many(self) -> Result<Vec<Self::Row>, Self::Error> {
         self.stream().try_collect().await
     }
+}
+
+/// An `INSERT` statement which can be executed against the database.
+///
+/// The parameter `N` indicates the number of columns in each row to be inserted.
+#[async_trait]
+pub trait Insert<N: Length>: Send {
+    /// Errors returned by this statement.
+    type Error: Error;
+
+    /// Add rows to insert.
+    fn rows<R>(self, rows: R) -> Self
+    where
+        R: IntoIterator<Item = Array<Value, N>>;
+
+    /// Do the insertion.
+    ///
+    /// This will execute a statement of the form `INSERT INTO table (columns) VALUES (rows)`.
+    ///
+    /// # Errors
+    ///
+    /// This method will fail if any of the items in `rows` conflict with an existing row in `table`
+    /// at a column which is defined as a unique or primary key.
+    async fn execute(self) -> Result<(), Self::Error>;
 }
 
 /// A row in a database table.

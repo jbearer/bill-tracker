@@ -1,6 +1,6 @@
 //! Instantiation of a GraphQL [`DataSource`](gql::DataSource) for a SQL database.
 
-use super::{db, type_system as sql};
+use super::{db, ops};
 use crate::graphql::{
     backend::{self as gql, Many, PageRequest},
     connection::Edge,
@@ -21,7 +21,7 @@ pub struct SqlDataSource<Db>(Db);
 #[async_trait]
 impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSource<Db> {
     type Connection<T: Type, C: ObjectType, E: ObjectType> = SqlConnection<T, C, E>;
-    type Error = sql::Error;
+    type Error = ops::Error;
 
     async fn load_page<T: Type, C: ObjectType, E: Clone + ObjectType>(
         &self,
@@ -35,7 +35,7 @@ impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSour
         &self,
         filter: Option<T::ResourcePredicate>,
     ) -> Result<Many<Self, T>, Self::Error> {
-        let objects = sql::query(&self.0, filter).await?;
+        let objects = ops::select::execute(&self.0, filter).await?;
         Ok(SqlConnection {
             fields: EmptyFields,
             edges: objects
@@ -46,6 +46,15 @@ impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSour
                 })
                 .collect(),
         })
+    }
+
+    async fn insert<I>(&mut self, resources: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator + Send,
+        I::IntoIter: Send,
+        I::Item: Resource,
+    {
+        ops::insert::execute(&self.0, resources).await
     }
 }
 

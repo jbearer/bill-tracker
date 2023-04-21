@@ -5,7 +5,9 @@
 #![cfg(any(test, feature = "mocks"))]
 
 use super::{Clause, SelectColumn, Value};
+use crate::{Array, Length};
 use async_std::sync::{Arc, RwLock};
+use async_trait::async_trait;
 use derive_more::From;
 use futures::{
     stream::{self, BoxStream},
@@ -44,15 +46,15 @@ struct Table {
 }
 
 impl Table {
-    fn new<const N: usize>(schema: [impl Into<String>; N]) -> Self {
+    fn new<N: Length>(schema: Array<impl Into<String>, N>) -> Self {
         Self {
             schema: schema.into_iter().map(|col| col.into()).collect(),
             rows: vec![],
         }
     }
 
-    fn append<const N: usize>(&mut self, rows: impl IntoIterator<Item = [Value; N]>) {
-        assert_eq!(N, self.schema.len());
+    fn append<N: Length>(&mut self, rows: impl IntoIterator<Item = Array<Value, N>>) {
+        assert_eq!(N::USIZE, self.schema.len());
         for row in rows {
             self.rows.push(Row::new(
                 row.into_iter()
@@ -79,20 +81,20 @@ impl Connection {
     }
 
     /// Create a table with the given column names.
-    pub async fn create_table<const N: usize>(
+    pub async fn create_table<N: Length>(
         &self,
         table: impl Into<String>,
-        columns: [impl Into<String>; N],
+        columns: Array<impl Into<String>, N>,
     ) -> Result<(), Error> {
         self.create_table_with_rows(table, columns, []).await
     }
 
     /// Create a table with the given column names and row values.
-    pub async fn create_table_with_rows<const N: usize>(
+    pub async fn create_table_with_rows<N: Length>(
         &self,
         table: impl Into<String>,
-        columns: [impl Into<String>; N],
-        rows: impl IntoIterator<Item = [Value; N]>,
+        columns: Array<impl Into<String>, N>,
+        rows: impl IntoIterator<Item = Array<Value, N>>,
     ) -> Result<(), Error> {
         let mut db = self.0.write().await;
         match db.tables.entry(table.into()) {
@@ -108,25 +110,42 @@ impl Connection {
 
 impl super::Connection for Connection {
     type Error = Error;
-    type Query<'a> = Query<'a>;
+    type Select<'a> = Select<'a>;
+    type Insert<'a, N: Length> = Insert<'a, N>;
 
-    fn select<'a>(&'a self, _select: &'a [SelectColumn<'a>], table: &'a str) -> Self::Query<'a> {
-        Query {
+    fn select<'a>(&'a self, _select: &'a [SelectColumn<'a>], table: &'a str) -> Self::Select<'a> {
+        Select {
             db: &self.0,
             table,
             clauses: vec![],
         }
     }
+
+    fn insert<'a, C, N: Length>(
+        &'a self,
+        table: &'a str,
+        columns: Array<C, N>,
+    ) -> Self::Insert<'a, N>
+    where
+        C: Into<String>,
+    {
+        Insert {
+            db: &self.0,
+            table,
+            columns: columns.map(|c| c.into()),
+            rows: vec![],
+        }
+    }
 }
 
 /// A query against an in-memory database.
-pub struct Query<'a> {
+pub struct Select<'a> {
     db: &'a RwLock<Db>,
     table: &'a str,
     clauses: Vec<Clause>,
 }
 
-impl<'a> super::Query for Query<'a> {
+impl<'a> super::Select for Select<'a> {
     type Error = Error;
     type Row = Row;
     type Stream = BoxStream<'a, Result<Self::Row, Self::Error>>;
@@ -153,6 +172,62 @@ impl<'a> super::Query for Query<'a> {
         }
         .try_flatten_stream()
         .boxed()
+    }
+}
+
+/// An insert statement for an in-memory database.
+pub struct Insert<'a, N: Length> {
+    db: &'a RwLock<Db>,
+    table: &'a str,
+    columns: Array<String, N>,
+    rows: Vec<Array<Value, N>>,
+}
+
+#[async_trait]
+impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
+    type Error = Error;
+
+    fn rows<R>(mut self, rows: R) -> Self
+    where
+        R: IntoIterator<Item = Array<Value, N>>,
+    {
+        self.rows.extend(rows);
+        self
+    }
+
+    async fn execute(mut self) -> Result<(), Error> {
+        let mut db = self.db.write().await;
+        let table = db
+            .tables
+            .get_mut(self.table)
+            .ok_or_else(|| Error::from(format!("no such table {}", self.table)))?;
+        if table.schema.len() != N::USIZE {
+            return Err(Error::from(format!(
+                "incorrect width for table {} (found {}, expected {})",
+                self.table,
+                table.schema.len(),
+                N::USIZE
+            )));
+        }
+
+        // A permutation of column indices mapping positions in the input rows to the positions of
+        // the corresponding rows in the table schema.
+        let mut column_permutation = Array::<usize, N>::default();
+        for (i, name) in self.columns.into_iter().enumerate() {
+            let col = table
+                .schema
+                .iter()
+                .position(|col| *col == name)
+                .ok_or_else(|| Error::from(format!("table {} has no column {name}", self.table)))?;
+            column_permutation[i] = col;
+        }
+
+        for row in &mut self.rows {
+            row.permute(&column_permutation);
+        }
+
+        table.append(self.rows);
+        Ok(())
     }
 }
 

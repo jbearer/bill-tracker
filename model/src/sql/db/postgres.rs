@@ -3,7 +3,9 @@
 //! This instantiation is built on [`async-postgres`].
 
 use super::{Clause, SelectColumn, Value};
+use crate::{Array, Length};
 use async_std::task::spawn;
+use async_trait::async_trait;
 use bytes::BytesMut;
 use derive_more::From;
 use futures::{
@@ -62,17 +64,29 @@ impl Connection {
 
 impl super::Connection for Connection {
     type Error = Error;
-    type Query<'a> = Query<'a>;
+    type Select<'a> = Select<'a>;
+    type Insert<'a, N: Length> = Insert<'a, N>;
 
-    fn select<'a>(&'a self, select: &'a [SelectColumn<'a>], table: &'a str) -> Self::Query<'a> {
-        Query::new(self, select, table)
+    fn select<'a>(&'a self, select: &'a [SelectColumn<'a>], table: &'a str) -> Self::Select<'a> {
+        Select::new(self, select, table)
+    }
+
+    fn insert<'a, C, N: Length>(
+        &'a self,
+        table: &'a str,
+        columns: Array<C, N>,
+    ) -> Self::Insert<'a, N>
+    where
+        C: Into<String>,
+    {
+        Insert::new(self, table, columns)
     }
 }
 
 /// A query against a PostgreSQL database.
-pub struct Query<'a>(Result<QueryInner<'a>, Error>);
+pub struct Select<'a>(Result<SelectInner<'a>, Error>);
 
-struct QueryInner<'a> {
+struct SelectInner<'a> {
     conn: &'a Connection,
     select: &'a [SelectColumn<'a>],
     table: &'a str,
@@ -80,9 +94,9 @@ struct QueryInner<'a> {
     params: Vec<Value>,
 }
 
-impl<'a> Query<'a> {
+impl<'a> Select<'a> {
     fn new(conn: &'a Connection, select: &'a [SelectColumn<'a>], table: &'a str) -> Self {
-        Self(Ok(QueryInner {
+        Self(Ok(SelectInner {
             conn,
             select,
             table,
@@ -92,7 +106,7 @@ impl<'a> Query<'a> {
     }
 }
 
-impl<'a> super::Query for Query<'a> {
+impl<'a> super::Select for Select<'a> {
     type Error = Error;
     type Row = Row;
     type Stream = BoxStream<'a, Result<Self::Row, Self::Error>>;
@@ -145,6 +159,73 @@ impl<'a> super::Query for Query<'a> {
         .try_flatten_stream()
         .map_err(Error::from)
         .boxed()
+    }
+}
+
+/// An `INSERT` statement for a PostgreSQL database.
+pub struct Insert<'a, N: Length> {
+    conn: &'a Connection,
+    table: &'a str,
+    columns: Array<String, N>,
+    num_rows: usize,
+    params: Vec<Value>,
+}
+
+impl<'a, N: Length> Insert<'a, N> {
+    fn new<C: Into<String>>(conn: &'a Connection, table: &'a str, columns: Array<C, N>) -> Self {
+        Self {
+            conn,
+            table,
+            columns: columns.map(|c| c.into()),
+            num_rows: 0,
+            params: vec![],
+        }
+    }
+}
+
+#[async_trait]
+impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
+    type Error = Error;
+
+    fn rows<R>(mut self, rows: R) -> Self
+    where
+        R: IntoIterator<Item = Array<Value, N>>,
+    {
+        for row in rows {
+            self.params.extend(row);
+            self.num_rows += 1;
+        }
+        self
+    }
+
+    async fn execute(self) -> Result<(), Error> {
+        let columns = self.columns.iter().join(",");
+        let rows = (0..self.num_rows)
+            .map(|i| {
+                let values = (0..N::USIZE)
+                    .map(|j| {
+                        // In the query itself, just reference a parameter by number. We will pass
+                        // the value itself into the query as a parameter to prevent SQL injection.
+                        let param_num = i * N::USIZE + j;
+                        // Params are 1-indexed.
+                        (param_num + 1).to_string()
+                    })
+                    .join(",");
+                format!("({values})")
+            })
+            .join(",");
+        let params = self.params.iter().map(|param| {
+            let param: &dyn ToSql = param;
+            param
+        });
+        self.conn
+            .0
+            .execute_raw(
+                format!("INSERT INTO {} ({}) VALUES {}", self.table, columns, rows).as_str(),
+                params,
+            )
+            .await?;
+        Ok(())
     }
 }
 

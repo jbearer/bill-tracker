@@ -110,7 +110,30 @@ fn generate_struct(
     });
 
     // Generate code to visit each field of this struct.
-    let field_visitors = fields.iter().map(|f| generate_field_visitor(&p, f));
+    let singular_field_visitors = fields
+        .iter()
+        .filter_map(|f| {
+            if field_is_plural(&p, f) {
+                None
+            } else {
+                Some(generate_field_visitor(f))
+            }
+        })
+        .collect::<Vec<_>>();
+    let plural_field_visitors = fields
+        .iter()
+        .filter_map(|f| {
+            if field_is_plural(&p, f) {
+                Some(generate_field_visitor(f))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // Count the number of fields of each type.
+    let num_singular_fields = format_ident!("U{}", singular_field_visitors.len());
+    let num_plural_fields = format_ident!("U{}", plural_field_visitors.len());
 
     // Generate predicates for each field of this struct.
     let pred_fields = fields.iter().map(|f| generate_predicate_field(&p, f));
@@ -167,10 +190,10 @@ fn generate_struct(
             use #graphql::{
                 async_graphql, connection::Connection, backend::{Cursor, DataSource, Many},
                 type_system::{
-                    Builder, BuildError, Field, PluralField, PluralPredicate,
-                    PluralPredicateCompiler, PluralType, Predicate, PredicateCompiler, Resource,
-                    ResourceBuilder, ResourcePredicate, ResourcePredicateCompiler, ResourceVisitor,
-                    Type, Value,
+                    typenum, Array, Builder, BuildError, Field, FieldVisitor, PluralField,
+                    PluralFieldVisitor, PluralPredicate, PluralPredicateCompiler, PluralType,
+                    Predicate, PredicateCompiler, Resource, ResourceBuilder, ResourcePredicate,
+                    ResourcePredicateCompiler, Type, Value, Visitor,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, Result,
             };
@@ -291,9 +314,16 @@ fn generate_struct(
                 fn build<B: Builder<Self>>(builder: B) -> Result<Self, B::Error> {
                     Self::build_resource(builder.resource())
                 }
+
+                fn describe<V: Visitor<Self>>(visitor: V) -> V::Output {
+                    Self::describe_resource(visitor.resource())
+                }
             }
 
             impl Resource for #name {
+                type NumFields = typenum::#num_singular_fields;
+                type NumPluralFields = typenum::#num_plural_fields;
+
                 type ResourcePredicate = #pred_name;
 
                 fn build_resource<B: ResourceBuilder<Self>>(builder: B) -> Result<Self, B::Error> {
@@ -303,8 +333,16 @@ fn generate_struct(
                     })
                 }
 
-                fn describe<V: ResourceVisitor<Self>>(visitor: V) -> V {
-                    visitor #(#field_visitors)*
+                fn describe_fields<V: FieldVisitor<Self>>(
+                    visitor: &mut V,
+                ) -> Array<V::Output, Self::NumFields> {
+                    [#(#singular_field_visitors),*].into()
+                }
+
+                fn describe_plural_fields<V: PluralFieldVisitor<Self>>(
+                    visitor: &mut V,
+                ) -> Array<V::Output, Self::NumPluralFields> {
+                    [#(#plural_field_visitors),*].into()
                 }
             }
         }
@@ -363,17 +401,11 @@ fn generate_field_builder(p: &AttrParser, f: &Field) -> TokenStream {
     }
 }
 
-fn generate_field_visitor(p: &AttrParser, f: &Field) -> TokenStream {
+fn generate_field_visitor(f: &Field) -> TokenStream {
     let name = f.ident.as_ref().expect("Resource fields must be named");
     let meta = field_meta_name(name);
-    if field_is_plural(p, f) {
-        quote! {
-            .visit_plural_field::<fields::#meta>()
-        }
-    } else {
-        quote! {
-            .visit_field::<fields::#meta>()
-        }
+    quote! {
+        visitor.visit::<fields::#meta>()
     }
 }
 

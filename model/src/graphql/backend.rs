@@ -65,6 +65,13 @@ pub trait DataSource {
         &self,
         filter: Option<T::ResourcePredicate>,
     ) -> Result<Many<Self, T>, Self::Error>;
+
+    /// Insert new items into the database.
+    async fn insert<I>(&mut self, resources: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator + Send,
+        I::Item: Resource,
+        I::IntoIter: Send;
 }
 
 /// A specification of a page to load in a paginated connection.

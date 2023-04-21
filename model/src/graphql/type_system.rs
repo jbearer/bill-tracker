@@ -37,6 +37,9 @@ use std::fmt::Display;
 pub use resource::*;
 pub use scalar::*;
 
+/// Needed to work with the [`Array`] type.
+pub use crate::{array, typenum, Array, Length};
+
 /// The base type of the whole GraphQL type system.
 ///
 /// All objects in a relational GraphQL API, from scalars to copmlext object types, have a type
@@ -61,6 +64,9 @@ pub trait Type: Clone + gql::OutputType {
     ///
     /// This is used to reconstruct an object from a backend-specific query result.
     fn build<B: Builder<Self>>(builder: B) -> Result<Self, B::Error>;
+
+    /// Describe the structure and definition of this [`Type`].
+    fn describe<V: Visitor<Self>>(visitor: V) -> V::Output;
 }
 
 /// A boolean predicate on a [`Type`] `T`.
@@ -101,6 +107,30 @@ pub trait PredicateCompiler<T: Type> {
 
     /// Compile this predicate as a [`ScalarPredicate`].
     fn scalar(self) -> Self::Scalar
+    where
+        T: Scalar;
+}
+
+/// Visitor which allows a [`Type`] to describe itself to a backend.
+///
+/// The implementation of this visitor will be backend-specific, but a [`Type`] can use this
+/// backend-agnostic interface to describe itself.
+pub trait Visitor<T: Type> {
+    /// An output summarizing the results of visiting `T`.
+    type Output;
+
+    /// A visitor specifically for [`Resource`] types.
+    type Resource: ResourceVisitor<T, Output = Self::Output>
+    where
+        T: Resource;
+
+    /// Visit a type which is a [`Resource`].
+    fn resource(self) -> Self::Resource
+    where
+        T: Resource;
+
+    /// Visit a type which is a [`Scalar`].
+    fn scalar(self) -> Self::Output
     where
         T: Scalar;
 }
@@ -405,6 +435,15 @@ pub mod scalar {
         };
     }
 
+    /// Generate an implementation of the [`describe`](Type::describe) function for scalars.
+    macro_rules! describe_scalar {
+        () => {
+            fn describe<V: Visitor<Self>>(visitor: V) -> V::Output {
+                visitor.scalar()
+            }
+        };
+    }
+
     /// Integral scalars.
     #[sealed]
     pub trait IntScalar: Scalar<Cmp = IntCmpOp> + Copy {}
@@ -581,6 +620,7 @@ pub mod scalar {
                         const PLURAL_NAME: &'static str = stringify!($t, s);
 
                         build_scalar!();
+                        describe_scalar!();
                     }
 
                     #[sealed]
@@ -740,6 +780,7 @@ pub mod scalar {
         const PLURAL_NAME: &'static str = "Strings";
 
         build_scalar!();
+        describe_scalar!();
     }
 
     #[sealed]
@@ -771,6 +812,16 @@ pub mod resource {
 
     /// A complex type in the relational GraphQL type system.
     pub trait Resource: Type<Predicate = Self::ResourcePredicate> {
+        // When `generic_const_exprs` stables, these can be converted to associated constants and
+        // the various `Array` types can be converted to constant sized arrays. This will
+        // clean the interface up considerably. Unfortunately, for now, it is unstable to use an
+        // associated constant in an array bound like `[T; Self::NUM_FIELDS]`, so we must settle for
+        // the slightly unwield `Array<T, Self::NumFields>`.
+        /// The number of singular fields this resource has.
+        type NumFields: Length;
+        /// The number of plural fields this resource has.
+        type NumPluralFields: Length;
+
         /// Boolean predicates on this resource type.
         ///
         /// This is always the same type as [`Predicate`](Type::Predicate), but the alias
@@ -795,7 +846,62 @@ pub mod resource {
         }
 
         /// Describe the structure and definition of this [`Resource`].
-        fn describe<V: ResourceVisitor<Self>>(visitor: V) -> V;
+        ///
+        /// This performs the same operation as [`describe`](Type::describe), but it can be called
+        /// directly with a [`ResourceVisitor`], instead of the more generic [`Visitor`]. This is
+        /// useful when it is known that a [`Type`] is actually a [`Resource`].
+        ///
+        /// It is an invariant that for all `T: Resource`,
+        /// `T::describe(visitor) == T::describe_resource(visitor.resource)`.
+        fn describe_resource<V: ResourceVisitor<Self>>(visitor: V) -> V::Output {
+            struct Visitor<V>(V);
+
+            impl<T: Resource, V: ResourceVisitor<T>> FieldVisitor<T> for Visitor<V> {
+                type Output = ();
+
+                fn visit<F: Field<Resource = T>>(&mut self) -> Self::Output {
+                    self.0.visit_field_in_place::<F>();
+                }
+            }
+
+            impl<T: Resource, V: ResourceVisitor<T>> PluralFieldVisitor<T> for Visitor<V> {
+                type Output = ();
+
+                fn visit<F: PluralField<Resource = T>>(&mut self) -> Self::Output {
+                    self.0.visit_plural_field_in_place::<F>();
+                }
+            }
+
+            let mut visitor = Visitor(visitor);
+            Self::describe_fields(&mut visitor);
+            Self::describe_plural_fields(&mut visitor);
+            visitor.0.end()
+        }
+
+        /// Describe the fields of this resource.
+        fn describe_fields<V: FieldVisitor<Self>>(
+            visitor: &mut V,
+        ) -> Array<V::Output, Self::NumFields>;
+
+        /// Describe the plural fields of this resource.
+        fn describe_plural_fields<V: PluralFieldVisitor<Self>>(
+            visitor: &mut V,
+        ) -> Array<V::Output, Self::NumPluralFields>;
+
+        /// The names of this resource's singular fields.
+        fn field_names() -> Array<&'static str, Self::NumFields> {
+            struct Visitor;
+
+            impl<T: Resource> FieldVisitor<T> for Visitor {
+                type Output = &'static str;
+
+                fn visit<F: Field<Resource = T>>(&mut self) -> Self::Output {
+                    F::NAME
+                }
+            }
+
+            Self::describe_fields(&mut Visitor)
+        }
     }
 
     /// A backend specific interface to query results, used to reconstruct a [`Resource`].
@@ -880,11 +986,47 @@ pub mod resource {
     ///
     /// The implementation of this visitor will be backend-specific, but a [`Resource`] can use this
     /// backend-agnostic interface to describe its structure and fields to any backend.
-    pub trait ResourceVisitor<T: Resource> {
+    pub trait ResourceVisitor<T: Resource>: Sized {
+        /// An output summarizing the results of visiting `T`.
+        type Output;
+
         /// Tell the visitor about a field `F` of type `T`.
-        fn visit_field<F: Field<Resource = T>>(self) -> Self;
+        fn visit_field<F: Field<Resource = T>>(mut self) -> Self {
+            self.visit_field_in_place::<F>();
+            self
+        }
+
+        /// Tell the visitor about a field `F` of type `T`, mutating the visitor.
+        fn visit_field_in_place<F: Field<Resource = T>>(&mut self);
 
         /// Tell the visitor about a plural field `F` of type `T`.
-        fn visit_plural_field<F: PluralField<Resource = T>>(self) -> Self;
+        fn visit_plural_field<F: PluralField<Resource = T>>(mut self) -> Self {
+            self.visit_plural_field_in_place::<F>();
+            self
+        }
+
+        /// Tell the visitor about a plural field `F` of type `T`, mutating the visitor.
+        fn visit_plural_field_in_place<F: PluralField<Resource = T>>(&mut self);
+
+        /// Finish visiting the type and collect the output.
+        fn end(self) -> Self::Output;
+    }
+
+    /// Visitor which allows fields of a [`Resource`] to describe themselves to a backend.
+    pub trait FieldVisitor<T: Resource> {
+        /// An output summarizing the results of visiting `T`s singular fields.
+        type Output;
+
+        /// Tell the visitor about a field `F`.
+        fn visit<F: Field<Resource = T>>(&mut self) -> Self::Output;
+    }
+
+    /// Visitor which allows plural fields of a [`Resource`] to describe themselves to a backend.
+    pub trait PluralFieldVisitor<T: Resource> {
+        /// An output summarizing the results of visiting `T`s plural fields.
+        type Output;
+
+        /// Tell the visitor about a field `F`.
+        fn visit<F: PluralField<Resource = T>>(&mut self) -> Self::Output;
     }
 }
