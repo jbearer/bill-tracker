@@ -183,8 +183,7 @@ fn generate_struct(
                 type_system::{
                     typenum, Array, Builder, BuildError, Field, FieldVisitor, PluralField,
                     PluralFieldVisitor, PluralPredicate, PluralPredicateCompiler, PluralType,
-                    Predicate, PredicateCompiler, Resource, ResourceBuilder, ResourcePredicate,
-                    Type, Value, Visitor,
+                    Predicate, Resource, ResourceBuilder, ResourcePredicate, Type, Value, Visitor,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, Result,
             };
@@ -230,12 +229,7 @@ fn generate_struct(
                 }
             }
 
-            impl Predicate<#name> for #pred_name {
-                fn compile<C: PredicateCompiler<#name>>(self, compiler: C) -> C::Result {
-                    compiler.resource(self)
-                }
-            }
-
+            impl Predicate<#name> for #pred_name {}
             impl ResourcePredicate<#name> for #pred_name {}
 
             #[doc = #quant_doc]
@@ -288,7 +282,7 @@ fn generate_struct(
                 }
 
                 fn describe<V: Visitor<Self>>(visitor: V) -> V::Output {
-                    Self::describe_resource(visitor.resource())
+                    visitor.resource()
                 }
             }
 

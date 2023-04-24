@@ -70,41 +70,7 @@ pub trait Type: Clone + gql::OutputType {
 }
 
 /// A boolean predicate on a [`Type`] `T`.
-pub trait Predicate<T: Type>: gql::InputType {
-    /// Compile this predicate into a form which the backend can execute.
-    ///
-    /// When a backend data source executes a GraphQL query, it must compile each predicate in the
-    /// query into a form which can be applied to data in the backend's particular datda model. The
-    /// backend implementation will construct a [`PredicateCompiler`] which is specific to that
-    /// backend and pass it to [`compile`](Self::compile). The predicate will use the
-    /// backend-agnostic [`PredicateCompiler`] to describe the structure of this predicate and
-    /// instruct the backend on how to compile it.
-    fn compile<C: PredicateCompiler<T>>(self, compiler: C) -> C::Result;
-}
-
-/// A generic interface to a backend-specific predicate compiler.
-///
-/// A [`Predicate`] can use this interface to instruct an arbitrary backend on how to compile it
-/// into a backend-specific format.
-pub trait PredicateCompiler<T: Type> {
-    /// The backend-specific compilation result.
-    type Result;
-
-    /// A compiler specifically for [`ScalarPredicate`]s.
-    type Scalar: ScalarPredicateCompiler<T, Result = Self::Result>
-    where
-        T: Scalar;
-
-    /// Compile this predicate as a [`ResourcePredicate`].
-    fn resource(self, predicate: T::ResourcePredicate) -> Self::Result
-    where
-        T: Resource;
-
-    /// Compile this predicate as a [`ScalarPredicate`].
-    fn scalar(self) -> Self::Scalar
-    where
-        T: Scalar;
-}
+pub trait Predicate<T: Type>: gql::InputType {}
 
 /// Visitor which allows a [`Type`] to describe itself to a backend.
 ///
@@ -114,13 +80,8 @@ pub trait Visitor<T: Type> {
     /// An output summarizing the results of visiting `T`.
     type Output;
 
-    /// A visitor specifically for [`Resource`] types.
-    type Resource: ResourceVisitor<T, Output = Self::Output>
-    where
-        T: Resource;
-
     /// Visit a type which is a [`Resource`].
-    fn resource(self) -> Self::Resource
+    fn resource(self) -> Self::Output
     where
         T: Resource;
 
@@ -382,14 +343,14 @@ pub mod scalar {
     pub trait ScalarPredicate<T: Scalar>: Predicate<T> {
         /// Compile this predicate into a form which the backend can execute.
         ///
-        /// This performs the same operation as [`compile`](Predicate::compile), but it can be
-        /// called directly with a [`ScalarPredicateCompiler`], instead of the more generic
-        /// [`PredicateCompiler`]. This is useful when it is known that a [`Predicate`] is actually
-        /// a [`ScalarPredicate`].
-        ///
-        /// It is an invariant that for all `T: ScalarPredicate` and `x: T`,
-        /// `x.compile(compiler) == x.compile_scalar_predicate(compiler.scalar())`.
-        fn compile_scalar_predicate<C: ScalarPredicateCompiler<T>>(self, compiler: C) -> C::Result;
+        /// When a backend data source executes a GraphQL query, it must compile each predicate in
+        /// the query into a form which can be applied to data in the backend's particular datda
+        /// model. For scalar predicates, the backend implementation will construct a
+        /// [`ScalarPredicateCompiler`] which is specific to that backend and pass it to
+        /// [`compile`](Self::compile). The predicate will use the backend-agnostic
+        /// [`ScalarPredicateCompiler`] to describe the structure of this predicate and instruct the
+        /// backend on how to compile it.
+        fn compile<C: ScalarPredicateCompiler<T>>(self, compiler: C) -> C::Result;
     }
 
     /// A generic interface to a backend-specific compiler for predicates on scalars.
@@ -499,15 +460,11 @@ pub mod scalar {
                         }
                     }
 
-                    impl super::Predicate<$t> for Predicate {
-                        fn compile<C: PredicateCompiler<$t>>(self, compiler: C) -> C::Result {
-                            self.compile_scalar_predicate(compiler.scalar())
-                        }
-                    }
+                    impl super::Predicate<$t> for Predicate {}
 
                     #[sealed]
                     impl ScalarPredicate<$t> for Predicate {
-                        fn compile_scalar_predicate<C: ScalarPredicateCompiler<$t>>(
+                        fn compile<C: ScalarPredicateCompiler<$t>>(
                             self,
                             compiler: C,
                         ) -> C::Result {
@@ -684,18 +641,11 @@ pub mod scalar {
         }
     }
 
-    impl Predicate<String> for StringPredicate {
-        fn compile<C: PredicateCompiler<String>>(self, compiler: C) -> C::Result {
-            self.compile_scalar_predicate(compiler.scalar())
-        }
-    }
+    impl Predicate<String> for StringPredicate {}
 
     #[sealed]
     impl ScalarPredicate<String> for StringPredicate {
-        fn compile_scalar_predicate<C: ScalarPredicateCompiler<String>>(
-            self,
-            compiler: C,
-        ) -> C::Result {
+        fn compile<C: ScalarPredicateCompiler<String>>(self, compiler: C) -> C::Result {
             match self {
                 Self::Cmp(cmp) => cmp.compile(compiler),
                 Self::Is(val) => StringCmp::new(StringCmpOp::EQ, val).compile(compiler),

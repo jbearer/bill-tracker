@@ -2,7 +2,7 @@
 //!
 //! This instantiation is built on [`async-postgres`].
 
-use super::{Clause, SelectColumn, Value};
+use super::{Clause, SchemaColumn, SelectColumn, Value};
 use crate::{Array, Length};
 use async_std::task::spawn;
 use async_trait::async_trait;
@@ -15,6 +15,7 @@ use futures::{
 };
 use itertools::Itertools;
 use snafu::Snafu;
+use std::borrow::Cow;
 use std::fmt::Display;
 use tokio_postgres::{
     types::{accepts, to_sql_checked, FromSql, IsNull, ToSql, Type},
@@ -62,24 +63,57 @@ impl Connection {
     }
 }
 
+#[async_trait]
 impl super::Connection for Connection {
     type Error = Error;
     type Select<'a> = Select<'a>;
     type Insert<'a, N: Length> = Insert<'a, N>;
 
-    fn select<'a>(&'a self, select: &'a [SelectColumn<'a>], table: &'a str) -> Self::Select<'a> {
-        Select::new(self, select, table)
+    async fn create_table<N: Length>(
+        &self,
+        table: impl Into<Cow<'_, str>> + Send,
+        columns: Array<SchemaColumn<'_>, N>,
+    ) -> Result<(), Self::Error> {
+        let table = table.into();
+        let columns = columns
+            .into_iter()
+            .map(|col| {
+                let ty = match col.ty() {
+                    super::Type::Int4 => "int4",
+                    super::Type::Int8 => "int8",
+                    super::Type::UInt4 => "int8",
+                    super::Type::UInt8 => "int8",
+                    super::Type::Text => "text",
+                };
+                format!("{} {}", col.name(), ty)
+            })
+            .join(",");
+        self.0
+            .execute(
+                format!("CREATE TABLE IF NOT EXISTS {table} ({columns})").as_str(),
+                &[],
+            )
+            .await?;
+        Ok(())
+    }
+
+    fn select<'a>(
+        &'a self,
+        select: &'a [SelectColumn<'a>],
+        table: impl Into<Cow<'a, str>> + Send,
+    ) -> Self::Select<'a> {
+        Select::new(self, select, table.into())
     }
 
     fn insert<'a, C, N: Length>(
         &'a self,
-        table: &'a str,
+        table: impl Into<Cow<'a, str>> + Send,
         columns: Array<C, N>,
     ) -> Self::Insert<'a, N>
     where
         C: Into<String>,
     {
-        Insert::new(self, table, columns)
+        Insert::new(self, table.into(), columns)
     }
 }
 
@@ -89,13 +123,13 @@ pub struct Select<'a>(Result<SelectInner<'a>, Error>);
 struct SelectInner<'a> {
     conn: &'a Connection,
     select: &'a [SelectColumn<'a>],
-    table: &'a str,
+    table: Cow<'a, str>,
     conditions: Vec<String>,
     params: Vec<Value>,
 }
 
 impl<'a> Select<'a> {
-    fn new(conn: &'a Connection, select: &'a [SelectColumn<'a>], table: &'a str) -> Self {
+    fn new(conn: &'a Connection, select: &'a [SelectColumn<'a>], table: Cow<'a, str>) -> Self {
         Self(Ok(SelectInner {
             conn,
             select,
@@ -165,14 +199,18 @@ impl<'a> super::Select for Select<'a> {
 /// An `INSERT` statement for a PostgreSQL database.
 pub struct Insert<'a, N: Length> {
     conn: &'a Connection,
-    table: &'a str,
+    table: Cow<'a, str>,
     columns: Array<String, N>,
     num_rows: usize,
     params: Vec<Value>,
 }
 
 impl<'a, N: Length> Insert<'a, N> {
-    fn new<C: Into<String>>(conn: &'a Connection, table: &'a str, columns: Array<C, N>) -> Self {
+    fn new<C: Into<String>>(
+        conn: &'a Connection,
+        table: Cow<'a, str>,
+        columns: Array<C, N>,
+    ) -> Self {
         Self {
             conn,
             table,

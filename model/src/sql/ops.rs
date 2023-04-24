@@ -1,6 +1,6 @@
 //! Compilation of high-level GraphQL operations into low-level SQL operations.
 
-use super::db::Value;
+use super::db::{Type, Value};
 use crate::graphql::type_system as gql;
 use convert_case::{Case, Casing};
 use is_type::Is;
@@ -8,6 +8,7 @@ use snafu::Snafu;
 use std::fmt::Display;
 
 pub mod insert;
+pub mod register;
 pub mod select;
 
 /// Errors encountered when executing GraphQL operations.
@@ -23,10 +24,7 @@ pub enum Error {
     },
 
     #[snafu(display("type mismatch (expected {expected}, got {got})"))]
-    TypeMismatch {
-        expected: &'static str,
-        got: &'static str,
-    },
+    TypeMismatch { expected: &'static str, got: Type },
 
     #[snafu(display("error building type {ty}: {error}"))]
     Build { ty: &'static str, error: String },
@@ -207,4 +205,50 @@ fn value_to_scalar<T: gql::Scalar>(val: Value) -> Result<T, Error> {
     }
 
     T::visit(Visitor(val))
+}
+
+/// Convert a [`Scalar`] to a SQL [`Type`].
+fn lower_scalar_type<T: gql::Scalar>() -> Type {
+    struct Visitor;
+
+    impl<T: gql::Scalar> gql::ScalarVisitor<T> for Visitor {
+        type Output = Type;
+
+        fn visit_i32(self) -> Self::Output
+        where
+            T: gql::I32Scalar,
+        {
+            Type::Int4
+        }
+
+        fn visit_i64(self) -> Self::Output
+        where
+            T: gql::I64Scalar,
+        {
+            Type::Int8
+        }
+
+        fn visit_u32(self) -> Self::Output
+        where
+            T: gql::U32Scalar,
+        {
+            Type::UInt4
+        }
+
+        fn visit_u64(self) -> Self::Output
+        where
+            T: gql::U64Scalar,
+        {
+            Type::UInt8
+        }
+
+        fn visit_string(self) -> Self::Output
+        where
+            T: gql::StringScalar,
+        {
+            Type::Text
+        }
+    }
+
+    T::visit(Visitor)
 }

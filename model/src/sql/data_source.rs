@@ -31,6 +31,10 @@ impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSour
         Ok(conn.load(page))
     }
 
+    async fn register<T: Resource>(&mut self) -> Result<(), Self::Error> {
+        ops::register::execute::<_, T>(&self.0).await
+    }
+
     async fn query<T: Resource>(
         &self,
         filter: Option<T::ResourcePredicate>,

@@ -4,7 +4,7 @@ use super::{
     super::db::{Connection, Row, Select, SelectColumn, SelectExt},
     column_name, scalar_to_value, table_name, value_to_scalar, Error,
 };
-use crate::graphql::type_system::{self as gql, Predicate, ResourcePredicate};
+use crate::graphql::type_system::{self as gql, ResourcePredicate, ScalarPredicate, Type};
 use take_mut::take;
 
 /// Search for items of resource `T` matching `filter`.
@@ -21,13 +21,13 @@ pub async fn execute<C: Connection, T: gql::Resource>(
     rows.iter().map(parse_row).collect()
 }
 
-/// Compiler to turn a predicate into a condition which is part of a `WHERE` clause.
-struct WhereCondition<Q> {
+/// Compiler to turn a scalar predicate into a condition which is part of a `WHERE` clause.
+struct ScalarWhereCondition<Q> {
     column: String,
     query: Q,
 }
 
-impl<Q: Select, T: gql::Scalar> gql::ScalarPredicateCompiler<T> for WhereCondition<Q> {
+impl<Q: Select, T: gql::Scalar> gql::ScalarPredicateCompiler<T> for ScalarWhereCondition<Q> {
     type Result = Q;
 
     fn cmp(self, op: T::Cmp, value: gql::Value<T>) -> Self::Result {
@@ -41,22 +41,31 @@ impl<Q: Select, T: gql::Scalar> gql::ScalarPredicateCompiler<T> for WhereConditi
     }
 }
 
-impl<Q: Select, T: gql::Type> gql::PredicateCompiler<T> for WhereCondition<Q> {
-    type Result = Q;
-    type Scalar = Self where T: gql::Scalar;
+/// Compiler to turn a predicate into a condition which is part of a `WHERE` clause.
+struct WhereCondition<Q, T: gql::Type> {
+    column: String,
+    query: Q,
+    predicate: T::Predicate,
+}
 
-    fn resource(self, _predicate: T::ResourcePredicate) -> Q
+impl<Q: Select, T: gql::Type> gql::Visitor<T> for WhereCondition<Q, T> {
+    type Output = Q;
+
+    fn resource(self) -> Q
     where
         T: gql::Resource,
     {
         unimplemented!("relations")
     }
 
-    fn scalar(self) -> Self::Scalar
+    fn scalar(self) -> Self::Output
     where
         T: gql::Scalar,
     {
-        self
+        self.predicate.compile(ScalarWhereCondition {
+            column: self.column,
+            query: self.query,
+        })
     }
 }
 
@@ -73,9 +82,10 @@ fn compile_predicate<Q: Select, T: gql::Resource>(query: Q, pred: T::ResourcePre
         fn visit_field_in_place<F: gql::Field<Resource = T>>(&mut self) {
             if let Some(sub_pred) = self.pred.take::<F>() {
                 take(&mut self.query, |query| {
-                    sub_pred.compile(WhereCondition {
+                    F::Type::describe(WhereCondition {
                         column: column_name::<F>(),
                         query,
+                        predicate: sub_pred,
                     })
                 });
             }
@@ -147,7 +157,7 @@ mod test {
     use super::*;
     use crate::{
         array,
-        sql::db::{mock, Value},
+        sql::db::{mock, SchemaColumn, Type, Value},
     };
     use generic_array::typenum::U2;
     use gql::Resource;
@@ -179,7 +189,10 @@ mod test {
         let db = mock::Connection::create();
         db.create_table_with_rows::<U2>(
             "test_resources",
-            array![&str; "field1", "field2"],
+            array![SchemaColumn;
+                SchemaColumn::new("field1", Type::Int4),
+                SchemaColumn::new("field2", Type::Text),
+            ],
             [
                 array![Value;
                     Value::from(resources[0].field1),

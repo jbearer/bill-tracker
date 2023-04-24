@@ -4,7 +4,7 @@
 //! isolation from an actual database.
 #![cfg(any(test, feature = "mocks"))]
 
-use super::{Clause, SelectColumn, Value};
+use super::{Clause, SchemaColumn, SelectColumn, Value};
 use crate::{Array, Length};
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
@@ -14,6 +14,7 @@ use futures::{
     StreamExt, TryFutureExt,
 };
 use snafu::Snafu;
+use std::borrow::Cow;
 use std::collections::hash_map::{Entry, HashMap};
 use std::fmt::Display;
 
@@ -41,14 +42,14 @@ struct Db {
 /// An in-memory table.
 #[derive(Debug)]
 struct Table {
-    schema: Vec<String>,
+    schema: Vec<SchemaColumn<'static>>,
     rows: Vec<Row>,
 }
 
 impl Table {
-    fn new<N: Length>(schema: Array<impl Into<String>, N>) -> Self {
+    fn new<N: Length>(schema: Array<SchemaColumn<'static>, N>) -> Self {
         Self {
-            schema: schema.into_iter().map(|col| col.into()).collect(),
+            schema: schema.to_vec(),
             rows: vec![],
         }
     }
@@ -59,7 +60,7 @@ impl Table {
             self.rows.push(Row::new(
                 row.into_iter()
                     .zip(&self.schema)
-                    .map(|(val, col)| (col.clone(), val)),
+                    .map(|(val, col)| (col.name().to_string(), val)),
             ));
         }
     }
@@ -84,7 +85,7 @@ impl Connection {
     pub async fn create_table<N: Length>(
         &self,
         table: impl Into<String>,
-        columns: Array<impl Into<String>, N>,
+        columns: Array<SchemaColumn<'static>, N>,
     ) -> Result<(), Error> {
         self.create_table_with_rows(table, columns, []).await
     }
@@ -93,37 +94,62 @@ impl Connection {
     pub async fn create_table_with_rows<N: Length>(
         &self,
         table: impl Into<String>,
-        columns: Array<impl Into<String>, N>,
+        columns: Array<SchemaColumn<'static>, N>,
         rows: impl IntoIterator<Item = Array<Value, N>>,
     ) -> Result<(), Error> {
         let mut db = self.0.write().await;
-        match db.tables.entry(table.into()) {
-            Entry::Occupied(e) => Err(Error::from(format!("table {} already exists", e.key()))),
-            Entry::Vacant(e) => {
-                let table = e.insert(Table::new(columns));
-                table.append(rows);
-                Ok(())
-            }
+        if let Entry::Vacant(e) = db.tables.entry(table.into()) {
+            let table = e.insert(Table::new(columns));
+            table.append(rows);
         }
+        Ok(())
+    }
+
+    /// The schema of this database.
+    ///
+    /// The schema maps table names to the schema for each table. Each table schema consists of a
+    /// list of column schemas.
+    pub async fn schema(&self) -> HashMap<String, Vec<SchemaColumn<'static>>> {
+        self.0
+            .read()
+            .await
+            .tables
+            .iter()
+            .map(|(name, table)| (name.clone(), table.schema.clone()))
+            .collect()
     }
 }
 
+#[async_trait]
 impl super::Connection for Connection {
     type Error = Error;
     type Select<'a> = Select<'a>;
     type Insert<'a, N: Length> = Insert<'a, N>;
 
-    fn select<'a>(&'a self, _select: &'a [SelectColumn<'a>], table: &'a str) -> Self::Select<'a> {
+    async fn create_table<N: Length>(
+        &self,
+        table: impl Into<Cow<'_, str>> + Send,
+        columns: Array<SchemaColumn<'_>, N>,
+    ) -> Result<(), Self::Error> {
+        self.create_table(table.into(), columns.map(|col| col.into_static()))
+            .await
+    }
+
+    fn select<'a>(
+        &'a self,
+        _select: &'a [SelectColumn<'a>],
+        table: impl Into<Cow<'a, str>> + Send,
+    ) -> Self::Select<'a> {
         Select {
             db: &self.0,
-            table,
+            table: table.into(),
             clauses: vec![],
         }
     }
 
     fn insert<'a, C, N: Length>(
         &'a self,
-        table: &'a str,
+        table: impl Into<Cow<'a, str>> + Send,
         columns: Array<C, N>,
     ) -> Self::Insert<'a, N>
     where
@@ -131,7 +157,7 @@ impl super::Connection for Connection {
     {
         Insert {
             db: &self.0,
-            table,
+            table: table.into(),
             columns: columns.map(|c| c.into()),
             rows: vec![],
         }
@@ -141,7 +167,7 @@ impl super::Connection for Connection {
 /// A query against an in-memory database.
 pub struct Select<'a> {
     db: &'a RwLock<Db>,
-    table: &'a str,
+    table: Cow<'a, str>,
     clauses: Vec<Clause>,
 }
 
@@ -160,7 +186,7 @@ impl<'a> super::Select for Select<'a> {
             let db = self.db.read().await;
             let table = db
                 .tables
-                .get(self.table)
+                .get(&*self.table)
                 .ok_or_else(|| Error::from(format!("no such table {}", self.table)))?;
             let rows = table
                 .rows
@@ -178,7 +204,7 @@ impl<'a> super::Select for Select<'a> {
 /// An insert statement for an in-memory database.
 pub struct Insert<'a, N: Length> {
     db: &'a RwLock<Db>,
-    table: &'a str,
+    table: Cow<'a, str>,
     columns: Array<String, N>,
     rows: Vec<Array<Value, N>>,
 }
@@ -199,7 +225,7 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
         let mut db = self.db.write().await;
         let table = db
             .tables
-            .get_mut(self.table)
+            .get_mut(&*self.table)
             .ok_or_else(|| Error::from(format!("no such table {}", self.table)))?;
         if table.schema.len() != N::USIZE {
             return Err(Error::from(format!(
@@ -217,7 +243,7 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
             let col = table
                 .schema
                 .iter()
-                .position(|col| *col == name)
+                .position(|col| col.name() == name)
                 .ok_or_else(|| Error::from(format!("table {} has no column {name}", self.table)))?;
             column_permutation[i] = col;
         }

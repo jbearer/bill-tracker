@@ -60,6 +60,9 @@ pub trait DataSource {
         page: PageRequest<Cursor<Self, T, C, E>>,
     ) -> Result<Vec<Edge<Cursor<Self, T, C, E>, T, E>>, Self::Error>;
 
+    /// Register the resource `T` in the schema.
+    async fn register<T: Resource>(&mut self) -> Result<(), Self::Error>;
+
     /// Get a paginated stream of items matching `filter`.
     async fn query<T: Resource>(
         &self,

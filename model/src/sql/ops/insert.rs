@@ -41,9 +41,8 @@ fn build_row_value<F: gql::Field>(resource: &F::Resource) -> Value {
 
     impl<'a, F: gql::Field> gql::Visitor<F::Type> for Visitor<'a, F> {
         type Output = Value;
-        type Resource = NestedResourceVisitor where F::Type: gql::Resource;
 
-        fn resource(self) -> Self::Resource
+        fn resource(self) -> Self::Output
         where
             F::Type: gql::Resource,
         {
@@ -58,20 +57,6 @@ fn build_row_value<F: gql::Field>(resource: &F::Resource) -> Value {
         }
     }
 
-    struct NestedResourceVisitor;
-
-    impl<T: gql::Resource> gql::ResourceVisitor<T> for NestedResourceVisitor {
-        type Output = Value;
-
-        fn visit_field_in_place<F: gql::Field<Resource = T>>(&mut self) {}
-
-        fn visit_plural_field_in_place<F: gql::PluralField<Resource = T>>(&mut self) {}
-
-        fn end(self) -> Self::Output {
-            unimplemented!("nested resources")
-        }
-    }
-
     F::Type::describe(Visitor::<F>(resource))
 }
 
@@ -80,7 +65,10 @@ mod test {
     use super::*;
     use crate::{
         array,
-        sql::{db::mock, ops},
+        sql::{
+            db::{mock, SchemaColumn, Type},
+            ops,
+        },
         typenum::U2,
     };
     use gql::Resource;
@@ -95,9 +83,15 @@ mod test {
     #[async_std::test]
     async fn test_round_trip_no_relations() {
         let db = mock::Connection::create();
-        db.create_table::<U2>("test_resources", array![&str; "field1", "field2"])
-            .await
-            .unwrap();
+        db.create_table::<U2>(
+            "test_resources",
+            array![SchemaColumn;
+                SchemaColumn::new("field1", Type::Int4),
+                SchemaColumn::new("field2", Type::Text),
+            ],
+        )
+        .await
+        .unwrap();
 
         let resources = [
             TestResource {
