@@ -29,7 +29,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # SQL dependencies
 async-postgres = "0.5"
 async-std = { version = "1.12", features = ["attributes"] }
-bytes = "0.5"
+bytes = "1.4"
 convert_case = "0.6"
 futures = "0.3"
 itertools = "0.10"
