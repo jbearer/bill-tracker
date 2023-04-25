@@ -353,6 +353,7 @@ mod test {
     struct Db {
         name: String,
         port: u16,
+        password: String,
     }
 
     impl Db {
@@ -366,12 +367,18 @@ mod test {
             let port = env::var("POSTGRES_TESTS_PORT")
                 .map(|port| port.parse().unwrap())
                 .unwrap_or(5432);
+            let password = env::var("POSTGRES_TESTS_PASSWORD").unwrap_or("password".to_string());
 
             tracing::info!("Creating test DB {name} on port {port}");
             let output = Command::new("createdb")
+                .arg("-h")
+                .arg("127.0.0.1")
                 .arg("-p")
                 .arg(&port.to_string())
+                .arg("-U")
+                .arg("postgres")
                 .arg(&name)
+                .env("PGPASSWORD", &password)
                 .output()
                 .unwrap();
             if !output.status.success() {
@@ -381,14 +388,20 @@ mod test {
                 );
             }
 
-            Some(Self { name, port })
+            Some(Self {
+                name,
+                port,
+                password,
+            })
         }
 
         async fn connect(&self) -> Connection {
             let mut config = Config::default();
             config
                 .dbname(&self.name)
-                .user("test")
+                .host("127.0.0.1")
+                .user("postgres")
+                .password(&self.password)
                 .host("localhost")
                 .port(self.port);
             Connection::new(config).await.unwrap()
@@ -399,9 +412,14 @@ mod test {
         fn drop(&mut self) {
             tracing::info!("Dropping test DB {}", self.name);
             let output = Command::new("dropdb")
+                .arg("-h")
+                .arg("127.0.0.1")
                 .arg("-p")
                 .arg(&self.port.to_string())
+                .arg("-U")
+                .arg("postgres")
                 .arg(&self.name)
+                .env("PGPASSWORD", &self.password)
                 .output()
                 .unwrap();
             if !output.status.success() {

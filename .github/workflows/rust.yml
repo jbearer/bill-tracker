@@ -13,6 +13,15 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: password
+
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
         name: Cancel Outdated Builds
@@ -42,12 +51,7 @@ jobs:
         run: |
           nix develop -c cargo build --release --workspace
 
-      - name: Create Test DB
-        run: |
-          nix develop -c bin/init-test-db
-
       - name: Test
         timeout-minutes: 30
-        run: |
-          nix develop -c pg_ctl -D db/test start
+        run:
           nix develop -c cargo test --release --workspace --verbose -- -Zunstable-options --report-time --test-threads 2
