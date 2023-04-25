@@ -42,6 +42,10 @@ jobs:
         run: |
           nix develop -c cargo build --release --workspace
 
+      - name: Create Test DB
+        run: |
+          nix develop -c bin/init-test-db
+
       - name: Test
         timeout-minutes: 30
         run: |

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+mkdir -p db/test
 initdb -D db/test --no-locale -E UTF-8
 pg_ctl -D db/test start
 createdb app
