@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["data_source","Instantiation of a GraphQL `DataSource` for a SQL database."],["db","Abstract interface to a SQL database."],["type_system","Implementation of a relational GraphQL solver using a PostgreSQL backend."]]};
+window.SIDEBAR_ITEMS = {"mod":[["data_source","Instantiation of a GraphQL `DataSource` for a SQL database."],["db","Abstract interface to a SQL database."]]};

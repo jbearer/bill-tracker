@@ -493,6 +493,77 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Derive macro for the `Resource` trait.
 
 </span><span class="kw">use </span><span class="kw">super</span>::graphql_path;
@@ -587,34 +658,6 @@
     );
     <span class="kw">let </span>plural_pred_doc = <span class="macro">format!</span>(<span class="string">&quot;A predicate used to filter collections of {}.&quot;</span>, plural_name);
 
-    <span class="comment">// Generate marker types to hold metadta for each field.
-    </span><span class="kw">let </span>field_metas = fields
-        .iter()
-        .map(|f| generate_field_meta(<span class="kw-2">&amp;</span>export, <span class="kw-2">&amp;</span>name, f));
-    <span class="kw">let </span>field_meta_impls = fields
-        .iter()
-        .map(|f| generate_field_meta_impl(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>name, f));
-
-    <span class="comment">// Generate code to reconstruct each field from a builder.
-    </span><span class="kw">let </span>field_builders = fields.iter().map(|f| generate_field_builder(<span class="kw-2">&amp;</span>p, f));
-
-    <span class="comment">// Generate code to populate skipped fields with default values during building.
-    </span><span class="kw">let </span>skipped_field_builders = skipped.iter().map(|(f, default)| {
-        <span class="kw">let </span>name = f.ident.as_ref().expect(<span class="string">&quot;Resource fields must be named&quot;</span>);
-        <span class="macro">quote!</span>(#name: #default,)
-    });
-
-    <span class="comment">// Generate predicates for each field of this struct.
-    </span><span class="kw">let </span>pred_fields = fields.iter().map(|f| generate_predicate_field(<span class="kw-2">&amp;</span>p, f));
-
-    <span class="comment">// Generate builder methods for each field of this struct.
-    </span><span class="kw">let </span>has_builder_fields = fields
-        .iter()
-        .map(|f| generate_has_builder_field(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>export, f));
-
-    <span class="comment">// Generate statements that compile each of the has fields into a predicate compiler.
-    </span><span class="kw">let </span>has_compilers = fields.iter().map(|f| generate_has_compiler(<span class="kw-2">&amp;</span>p, f));
-
     <span class="comment">// If this struct has a _primary field_, it gets a couple of extra predicate options. In
     // addition to filtering by applying a predicate to its fields, you can implicitly filter based
     // on the primary field, which leads to shorter, more readable queries. In particular, you can
@@ -628,12 +671,6 @@
             </span>Is(&lt;#ty <span class="kw">as </span>Type&gt;::Predicate),
         }
     });
-    <span class="comment">// Compile the `is` predicate.
-    </span><span class="kw">let </span>is_primary_compiler = primary_field.as_ref().map(|<span class="kw">_</span>| {
-        <span class="macro">quote! </span>{
-            <span class="self">Self</span>::Is(value) =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Is predicates&quot;</span>),
-        }
-    });
     <span class="comment">// The `includes` plural predicate, filtering a collection based on whether or not it contains
     // any items with the given value for their primary field.
     </span><span class="kw">let </span>includes_primary = primary_field.as_ref().map(|f| {
@@ -643,6 +680,57 @@
             </span>Includes(Value&lt;#ty&gt;),
         }
     });
+
+    <span class="comment">// Generate marker types to hold metadta for each field.
+    </span><span class="kw">let </span>field_metas = fields
+        .iter()
+        .map(|f| generate_field_meta(<span class="kw-2">&amp;</span>export, <span class="kw-2">&amp;</span>name, f));
+    <span class="kw">let </span>field_meta_impls = fields
+        .iter()
+        .map(|f| generate_field_meta_impl(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>pred_name, f, primary_field));
+
+    <span class="comment">// Generate code to reconstruct each field from a builder.
+    </span><span class="kw">let </span>field_builders = fields.iter().map(|f| generate_field_builder(<span class="kw-2">&amp;</span>p, f));
+
+    <span class="comment">// Generate code to populate skipped fields with default values during building.
+    </span><span class="kw">let </span>skipped_field_builders = skipped.iter().map(|(f, default)| {
+        <span class="kw">let </span>name = f.ident.as_ref().expect(<span class="string">&quot;Resource fields must be named&quot;</span>);
+        <span class="macro">quote!</span>(#name: #default,)
+    });
+
+    <span class="comment">// Generate code to visit each field of this struct.
+    </span><span class="kw">let </span>singular_field_visitors = fields
+        .iter()
+        .filter_map(|f| {
+            <span class="kw">if </span>field_is_plural(<span class="kw-2">&amp;</span>p, f) {
+                <span class="prelude-val">None
+            </span>} <span class="kw">else </span>{
+                <span class="prelude-val">Some</span>(generate_field_visitor(f))
+            }
+        })
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+    <span class="kw">let </span>plural_field_visitors = fields
+        .iter()
+        .filter_map(|f| {
+            <span class="kw">if </span>field_is_plural(<span class="kw-2">&amp;</span>p, f) {
+                <span class="prelude-val">Some</span>(generate_field_visitor(f))
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>}
+        })
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+    <span class="comment">// Count the number of fields of each type.
+    </span><span class="kw">let </span>num_singular_fields = <span class="macro">format_ident!</span>(<span class="string">&quot;U{}&quot;</span>, singular_field_visitors.len());
+    <span class="kw">let </span>num_plural_fields = <span class="macro">format_ident!</span>(<span class="string">&quot;U{}&quot;</span>, plural_field_visitors.len());
+
+    <span class="comment">// Generate predicates for each field of this struct.
+    </span><span class="kw">let </span>pred_fields = fields.iter().map(|f| generate_predicate_field(<span class="kw-2">&amp;</span>p, f));
+
+    <span class="comment">// Generate builder methods for each field of this struct.
+    </span><span class="kw">let </span>has_builder_fields = fields
+        .iter()
+        .map(|f| generate_has_builder_field(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>export, f));
 
     <span class="comment">// Generate resolvers for each field.
     </span><span class="kw">let </span>resolvers = fields.iter().map(|f| generate_resolver(<span class="kw-2">&amp;</span>p, f));
@@ -659,9 +747,9 @@
             <span class="kw">use </span>#graphql::{
                 async_graphql, connection::Connection, backend::{Cursor, DataSource, Many},
                 type_system::{
-                    Builder, BuildError, Field, PluralField, PluralPredicate,
-                    PluralPredicateCompiler, PluralType, Predicate, PredicateCompiler, Resource,
-                    ResourceBuilder, ResourcePredicate, ResourcePredicateCompiler, Type, Value,
+                    typenum, Array, Builder, BuildError, Field, FieldVisitor, PluralField,
+                    PluralFieldVisitor, PluralPredicate, PluralPredicateCompiler, PluralType,
+                    Predicate, Resource, ResourceBuilder, ResourcePredicate, Type, Value, Visitor,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, <span class="prelude-ty">Result</span>,
             };
@@ -691,15 +779,6 @@
 
             <span class="kw">impl </span>#has_name {
                 #(#has_builder_fields)*
-
-                <span class="doccomment">/// Compile this predicate into a form the backend can execute.
-                </span>#export <span class="kw">fn </span>compile&lt;C: ResourcePredicateCompiler&lt;#name&gt;&gt;(
-                    <span class="self">self</span>,
-                    <span class="kw-2">mut </span>compiler: C,
-                ) -&gt; C::Result {
-                    #(#has_compilers)*
-                    compiler.end()
-                }
             }
 
             <span class="attr">#[doc = #pred_doc]
@@ -716,23 +795,8 @@
                 }
             }
 
-            <span class="kw">impl </span>Predicate&lt;#name&gt; <span class="kw">for </span>#pred_name {
-                <span class="kw">fn </span>compile&lt;C: PredicateCompiler&lt;#name&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result {
-                    <span class="self">self</span>.compile_resource_predicate(compiler.resource())
-                }
-            }
-
-            <span class="kw">impl </span>ResourcePredicate&lt;#name&gt; <span class="kw">for </span>#pred_name {
-                <span class="kw">fn </span>compile_resource_predicate&lt;C: ResourcePredicateCompiler&lt;#name&gt;&gt;(
-                    <span class="self">self</span>,
-                    compiler: C,
-                ) -&gt; C::Result {
-                    <span class="kw">match </span><span class="self">self </span>{
-                        <span class="self">Self</span>::Has(has) =&gt; has.compile(compiler),
-                        #is_primary_compiler
-                    }
-                }
-            }
+            <span class="kw">impl </span>Predicate&lt;#name&gt; <span class="kw">for </span>#pred_name {}
+            <span class="kw">impl </span>ResourcePredicate&lt;#name&gt; <span class="kw">for </span>#pred_name {}
 
             <span class="attr">#[doc = #quant_doc]
             #[derive(Clone, Debug, InputObject)]
@@ -782,9 +846,16 @@
                 <span class="kw">fn </span>build&lt;B: Builder&lt;<span class="self">Self</span>&gt;&gt;(builder: B) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, B::Error&gt; {
                     <span class="self">Self</span>::build_resource(builder.resource())
                 }
+
+                <span class="kw">fn </span>describe&lt;V: Visitor&lt;<span class="self">Self</span>&gt;&gt;(visitor: V) -&gt; V::Output {
+                    visitor.resource()
+                }
             }
 
             <span class="kw">impl </span>Resource <span class="kw">for </span>#name {
+                <span class="kw">type </span>NumFields = typenum::#num_singular_fields;
+                <span class="kw">type </span>NumPluralFields = typenum::#num_plural_fields;
+
                 <span class="kw">type </span>ResourcePredicate = #pred_name;
 
                 <span class="kw">fn </span>build_resource&lt;B: ResourceBuilder&lt;<span class="self">Self</span>&gt;&gt;(builder: B) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, B::Error&gt; {
@@ -792,6 +863,18 @@
                         #(#field_builders)*
                         #(#skipped_field_builders)*
                     })
+                }
+
+                <span class="kw">fn </span>describe_fields&lt;V: FieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
+                    visitor: <span class="kw-2">&amp;mut </span>V,
+                ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumFields&gt; {
+                    [#(#singular_field_visitors),<span class="kw-2">*</span>].into()
+                }
+
+                <span class="kw">fn </span>describe_plural_fields&lt;V: PluralFieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
+                    visitor: <span class="kw-2">&amp;mut </span>V,
+                ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumPluralFields&gt; {
+                    [#(#plural_field_visitors),<span class="kw-2">*</span>].into()
                 }
             }
         }
@@ -808,24 +891,93 @@
     }
 }
 
-<span class="kw">fn </span>generate_field_meta_impl(p: <span class="kw-2">&amp;</span>AttrParser, resource: <span class="kw-2">&amp;</span>Ident, f: <span class="kw-2">&amp;</span>Field) -&gt; TokenStream {
-    <span class="kw">let </span>name = field_meta_name(f.ident.as_ref().expect(<span class="string">&quot;Resource fields must be named&quot;</span>));
+<span class="kw">fn </span>generate_field_meta_impl(
+    p: <span class="kw-2">&amp;</span>AttrParser,
+    resource: <span class="kw-2">&amp;</span>Ident,
+    pred_name: <span class="kw-2">&amp;</span>Ident,
+    f: <span class="kw-2">&amp;</span>Field,
+    primary_field: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Field&gt;,
+) -&gt; TokenStream {
+    <span class="kw">let </span>name = f.ident.as_ref().expect(<span class="string">&quot;Resource fields must be named&quot;</span>);
+    <span class="kw">let </span>meta_name = field_meta_name(name);
     <span class="kw">let </span>name_str = name.to_string();
     <span class="kw">let </span>ty = <span class="kw-2">&amp;</span>f.ty;
     <span class="kw">if </span>field_is_plural(p, f) {
         <span class="macro">quote! </span>{
-            <span class="kw">impl </span>PluralField <span class="kw">for </span>fields::#name {
+            <span class="kw">impl </span>PluralField <span class="kw">for </span>fields::#meta_name {
                 <span class="kw">type </span>Type = #ty;
                 <span class="kw">type </span>Resource = #resource;
                 <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #name_str;
             }
         }
     } <span class="kw">else </span>{
+        <span class="kw">let </span>get_primary = primary_field.map(|primary| {
+            <span class="kw">if </span>f.ident == primary.ident {
+                <span class="macro">quote!</span>(#pred_name::Is(f) =&gt; <span class="prelude-val">Some</span>(f),)
+            } <span class="kw">else </span>{
+                <span class="macro">quote!</span>(#pred_name::Is(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,)
+            }
+        });
+        <span class="kw">let </span>take_primary = primary_field.map(|primary| {
+            <span class="kw">if </span>f.ident == primary.ident {
+                <span class="macro">quote!</span>(#pred_name::Is(<span class="kw">_</span>) =&gt; {
+                    <span class="comment">// If we take the primary predicate from an `Is` variant, there are no
+                    // predicates left, but `Is` requires exactly one. Thus, the predicate changes
+                    // to a `Has` variant with no fields.
+                    </span><span class="kw">let </span>#pred_name::Is(f) = std::mem::replace(
+                        predicate, #pred_name::Has(Default::default()),
+                    ) <span class="kw">else </span>{
+                        <span class="macro">unreachable!</span>();
+                    };
+                    <span class="prelude-val">Some</span>(f)
+                })
+            } <span class="kw">else </span>{
+                <span class="macro">quote!</span>(#pred_name::Is(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,)
+            }
+        });
+
         <span class="macro">quote! </span>{
-            <span class="kw">impl </span>Field <span class="kw">for </span>fields::#name {
+            <span class="kw">impl </span>Field <span class="kw">for </span>fields::#meta_name {
                 <span class="kw">type </span>Type = #ty;
                 <span class="kw">type </span>Resource = #resource;
                 <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #name_str;
+
+                <span class="kw">fn </span>get(resource: <span class="kw-2">&amp;</span><span class="self">Self</span>::Resource) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Type {
+                    <span class="kw-2">&amp;</span>resource.#name
+                }
+
+                <span class="kw">fn </span>get_predicate(
+                    predicate: <span class="kw-2">&amp;</span>#pred_name,
+                ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Predicate&gt; {
+                    <span class="kw">match </span>predicate {
+                        #pred_name::Has(has) =&gt; {
+                            has.#name.as_ref()
+                        }
+                        #get_primary
+                    }
+                }
+
+                <span class="kw">fn </span>get_predicate_mut(
+                    predicate: <span class="kw-2">&amp;mut </span>#pred_name,
+                ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Predicate&gt; {
+                    <span class="kw">match </span>predicate {
+                        #pred_name::Has(has) =&gt; {
+                            has.#name.as_mut()
+                        }
+                        #get_primary
+                    }
+                }
+
+                <span class="kw">fn </span>take_predicate(
+                    predicate: <span class="kw-2">&amp;mut </span>#pred_name,
+                ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Predicate&gt; {
+                    <span class="kw">match </span>predicate {
+                        #pred_name::Has(has) =&gt; {
+                            has.#name.take()
+                        }
+                        #take_primary
+                    }
+                }
             }
         }
     }
@@ -842,6 +994,14 @@
         <span class="macro">quote! </span>{
             #name: builder.field::&lt;fields::#meta&gt;().map_err(B::Error::field::&lt;fields::#meta&gt;)<span class="question-mark">?</span>,
         }
+    }
+}
+
+<span class="kw">fn </span>generate_field_visitor(f: <span class="kw-2">&amp;</span>Field) -&gt; TokenStream {
+    <span class="kw">let </span>name = f.ident.as_ref().expect(<span class="string">&quot;Resource fields must be named&quot;</span>);
+    <span class="kw">let </span>meta = field_meta_name(name);
+    <span class="macro">quote! </span>{
+        visitor.visit::&lt;fields::#meta&gt;()
     }
 }
 
@@ -891,24 +1051,6 @@
                 <span class="self">self</span>.#name = <span class="prelude-val">Some</span>(pred);
                 <span class="self">self
             </span>}
-        }
-    }
-}
-
-<span class="kw">fn </span>generate_has_compiler(p: <span class="kw-2">&amp;</span>AttrParser, f: <span class="kw-2">&amp;</span>Field) -&gt; TokenStream {
-    <span class="kw">let </span>name = f.ident.as_ref().expect(<span class="string">&quot;Resource fields must be named&quot;</span>);
-    <span class="kw">let </span>meta = field_meta_name(name);
-    <span class="kw">if </span>field_is_plural(p, f) {
-        <span class="macro">quote! </span>{
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(pred) = <span class="self">self</span>.#name {
-                compiler = compiler.plural_field::&lt;fields::#meta&gt;(pred);
-            }
-        }
-    } <span class="kw">else </span>{
-        <span class="macro">quote! </span>{
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(pred) = <span class="self">self</span>.#name {
-                compiler = compiler.field::&lt;fields::#meta&gt;(pred);
-            }
         }
     }
 }

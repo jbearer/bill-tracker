@@ -113,9 +113,22 @@
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Instantiation of a GraphQL [`DataSource`](gql::DataSource) for a SQL database.
 
-</span><span class="kw">use super</span>::{db, type_system <span class="kw">as </span>sql};
+</span><span class="kw">use super</span>::{db, ops};
 <span class="kw">use </span><span class="kw">crate</span>::graphql::{
     backend::{<span class="self">self </span><span class="kw">as </span>gql, Many, PageRequest},
     connection::Edge,
@@ -136,7 +149,7 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;Db: <span class="lifetime">&#39;static </span>+ db::Connection + Send + Sync&gt; gql::DataSource <span class="kw">for </span>SqlDataSource&lt;Db&gt; {
     <span class="kw">type </span>Connection&lt;T: Type, C: ObjectType, E: ObjectType&gt; = SqlConnection&lt;T, C, E&gt;;
-    <span class="kw">type </span>Error = sql::Error;
+    <span class="kw">type </span>Error = ops::Error;
 
     <span class="kw">async fn </span>load_page&lt;T: Type, C: ObjectType, E: Clone + ObjectType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -146,11 +159,15 @@
         <span class="prelude-val">Ok</span>(conn.load(page))
     }
 
+    <span class="kw">async fn </span>register&lt;T: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
+        ops::register::execute::&lt;<span class="kw">_</span>, T&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>).<span class="kw">await
+    </span>}
+
     <span class="kw">async fn </span>query&lt;T: Resource&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         filter: <span class="prelude-ty">Option</span>&lt;T::ResourcePredicate&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Many&lt;<span class="self">Self</span>, T&gt;, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">let </span>objects = sql::query(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, filter).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>objects = ops::select::execute(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, filter).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(SqlConnection {
             fields: EmptyFields,
             edges: objects
@@ -162,6 +179,15 @@
                 .collect(),
         })
     }
+
+    <span class="kw">async fn </span>insert&lt;I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, resources: I) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;
+    <span class="kw">where
+        </span>I: IntoIterator + Send,
+        I::IntoIter: Send,
+        I::Item: Resource,
+    {
+        ops::insert::execute(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, resources).<span class="kw">await
+    </span>}
 }
 
 <span class="doccomment">/// A paginated connection to a set of rows.

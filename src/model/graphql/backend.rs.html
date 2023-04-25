@@ -85,6 +85,17 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Interfaces provided by a backend data source consumed by the GraphQL model.
 //!
 //! The entrypoint to this system of traits is [`DataSource`], which describes the interface by
@@ -147,14 +158,25 @@
         page: PageRequest&lt;Cursor&lt;<span class="self">Self</span>, T, C, E&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Edge&lt;Cursor&lt;<span class="self">Self</span>, T, C, E&gt;, T, E&gt;&gt;, <span class="self">Self</span>::Error&gt;;
 
+    <span class="doccomment">/// Register the resource `T` in the schema.
+    </span><span class="kw">async fn </span>register&lt;T: Resource&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
+
     <span class="doccomment">/// Get a paginated stream of items matching `filter`.
     </span><span class="kw">async fn </span>query&lt;T: Resource&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         filter: <span class="prelude-ty">Option</span>&lt;T::ResourcePredicate&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Many&lt;<span class="self">Self</span>, T&gt;, <span class="self">Self</span>::Error&gt;;
+
+    <span class="doccomment">/// Insert new items into the database.
+    </span><span class="kw">async fn </span>insert&lt;I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, resources: I) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;
+    <span class="kw">where
+        </span>I: IntoIterator + Send,
+        I::Item: Resource,
+        I::IntoIter: Send;
 }
 
 <span class="doccomment">/// A specification of a page to load in a paginated connection.
+</span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 </span><span class="kw">pub struct </span>PageRequest&lt;Cursor&gt; {
     <span class="doccomment">/// Limit the results to the first N items that otherwise match the request.
     </span><span class="kw">pub </span>first: <span class="prelude-ty">Option</span>&lt;usize&gt;,

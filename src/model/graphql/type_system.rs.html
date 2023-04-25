@@ -865,6 +865,118 @@
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Type system for a relational GraphQL API.
 //!
 //! A relational GraphQL API is one which allows the client to filter results based on complex
@@ -904,6 +1016,9 @@
 <span class="kw">pub use </span>resource::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>scalar::<span class="kw-2">*</span>;
 
+<span class="doccomment">/// Needed to work with the [`Array`] type.
+</span><span class="kw">pub use crate</span>::{array, typenum, Array, Length};
+
 <span class="doccomment">/// The base type of the whole GraphQL type system.
 ///
 /// All objects in a relational GraphQL API, from scalars to copmlext object types, have a type
@@ -928,46 +1043,29 @@
     ///
     /// This is used to reconstruct an object from a backend-specific query result.
     </span><span class="kw">fn </span>build&lt;B: Builder&lt;<span class="self">Self</span>&gt;&gt;(builder: B) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, B::Error&gt;;
+
+    <span class="doccomment">/// Describe the structure and definition of this [`Type`].
+    </span><span class="kw">fn </span>describe&lt;V: Visitor&lt;<span class="self">Self</span>&gt;&gt;(visitor: V) -&gt; V::Output;
 }
 
 <span class="doccomment">/// A boolean predicate on a [`Type`] `T`.
-</span><span class="kw">pub trait </span>Predicate&lt;T: Type&gt;: gql::InputType {
-    <span class="doccomment">/// Compile this predicate into a form which the backend can execute.
-    ///
-    /// When a backend data source executes a GraphQL query, it must compile each predicate in the
-    /// query into a form which can be applied to data in the backend&#39;s particular datda model. The
-    /// backend implementation will construct a [`PredicateCompiler`] which is specific to that
-    /// backend and pass it to [`compile`](Self::compile). The predicate will use the
-    /// backend-agnostic [`PredicateCompiler`] to describe the structure of this predicate and
-    /// instruct the backend on how to compile it.
-    </span><span class="kw">fn </span>compile&lt;C: PredicateCompiler&lt;T&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result;
-}
+</span><span class="kw">pub trait </span>Predicate&lt;T: Type&gt;: gql::InputType {}
 
-<span class="doccomment">/// A generic interface to a backend-specific predicate compiler.
+<span class="doccomment">/// Visitor which allows a [`Type`] to describe itself to a backend.
 ///
-/// A [`Predicate`] can use this interface to instruct an arbitrary backend on how to compile it
-/// into a backend-specific format.
-</span><span class="kw">pub trait </span>PredicateCompiler&lt;T: Type&gt; {
-    <span class="doccomment">/// The backend-specific compilation result.
-    </span><span class="kw">type </span><span class="prelude-ty">Result</span>;
+/// The implementation of this visitor will be backend-specific, but a [`Type`] can use this
+/// backend-agnostic interface to describe itself.
+</span><span class="kw">pub trait </span>Visitor&lt;T: Type&gt; {
+    <span class="doccomment">/// An output summarizing the results of visiting `T`.
+    </span><span class="kw">type </span>Output;
 
-    <span class="doccomment">/// A compiler specifically for [`ResourcePredicate`]s.
-    </span><span class="kw">type </span>Resource: ResourcePredicateCompiler&lt;T, <span class="prelude-ty">Result </span>= <span class="self">Self</span>::Result&gt;
+    <span class="doccomment">/// Visit a type which is a [`Resource`].
+    </span><span class="kw">fn </span>resource(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output
     <span class="kw">where
         </span>T: Resource;
 
-    <span class="doccomment">/// A compiler specifically for [`ScalarPredicate`]s.
-    </span><span class="kw">type </span>Scalar: ScalarPredicateCompiler&lt;T, <span class="prelude-ty">Result </span>= <span class="self">Self</span>::Result&gt;
-    <span class="kw">where
-        </span>T: Scalar;
-
-    <span class="doccomment">/// Compile this predicate as a [`ResourcePredicate`].
-    </span><span class="kw">fn </span>resource(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Resource
-    <span class="kw">where
-        </span>T: Resource;
-
-    <span class="doccomment">/// Compile this predicate as a [`ScalarPredicate`].
-    </span><span class="kw">fn </span>scalar(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Scalar
+    <span class="doccomment">/// Visit a type which is a [`Scalar`].
+    </span><span class="kw">fn </span>scalar(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output
     <span class="kw">where
         </span>T: Scalar;
 }
@@ -1224,14 +1322,14 @@
     </span><span class="kw">pub trait </span>ScalarPredicate&lt;T: Scalar&gt;: Predicate&lt;T&gt; {
         <span class="doccomment">/// Compile this predicate into a form which the backend can execute.
         ///
-        /// This performs the same operation as [`compile`](Predicate::compile), but it can be
-        /// called directly with a [`ScalarPredicateCompiler`], instead of the more generic
-        /// [`PredicateCompiler`]. This is useful when it is known that a [`Predicate`] is actually
-        /// a [`ScalarPredicate`].
-        ///
-        /// It is an invariant that for all `T: ScalarPredicate` and `x: T`,
-        /// `x.compile(compiler) == x.compile_scalar_predicate(compiler.scalar())`.
-        </span><span class="kw">fn </span>compile_scalar_predicate&lt;C: ScalarPredicateCompiler&lt;T&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result;
+        /// When a backend data source executes a GraphQL query, it must compile each predicate in
+        /// the query into a form which can be applied to data in the backend&#39;s particular datda
+        /// model. For scalar predicates, the backend implementation will construct a
+        /// [`ScalarPredicateCompiler`] which is specific to that backend and pass it to
+        /// [`compile`](Self::compile). The predicate will use the backend-agnostic
+        /// [`ScalarPredicateCompiler`] to describe the structure of this predicate and instruct the
+        /// backend on how to compile it.
+        </span><span class="kw">fn </span>compile&lt;C: ScalarPredicateCompiler&lt;T&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result;
     }
 
     <span class="doccomment">/// A generic interface to a backend-specific compiler for predicates on scalars.
@@ -1268,6 +1366,15 @@
         () =&gt; {
             <span class="kw">fn </span>build&lt;B: Builder&lt;<span class="self">Self</span>&gt;&gt;(builder: B) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, B::Error&gt; {
                 builder.scalar()
+            }
+        };
+    }
+
+    <span class="doccomment">/// Generate an implementation of the [`describe`](Type::describe) function for scalars.
+    </span><span class="macro">macro_rules! </span>describe_scalar {
+        () =&gt; {
+            <span class="kw">fn </span>describe&lt;V: Visitor&lt;<span class="self">Self</span>&gt;&gt;(visitor: V) -&gt; V::Output {
+                visitor.scalar()
             }
         };
     }
@@ -1332,15 +1439,11 @@
                         }
                     }
 
-                    <span class="kw">impl </span><span class="kw">super</span>::Predicate&lt;<span class="macro-nonterminal">$t</span>&gt; <span class="kw">for </span>Predicate {
-                        <span class="kw">fn </span>compile&lt;C: PredicateCompiler&lt;<span class="macro-nonterminal">$t</span>&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result {
-                            <span class="self">self</span>.compile_scalar_predicate(compiler.scalar())
-                        }
-                    }
+                    <span class="kw">impl </span><span class="kw">super</span>::Predicate&lt;<span class="macro-nonterminal">$t</span>&gt; <span class="kw">for </span>Predicate {}
 
                     <span class="attr">#[sealed]
                     </span><span class="kw">impl </span>ScalarPredicate&lt;<span class="macro-nonterminal">$t</span>&gt; <span class="kw">for </span>Predicate {
-                        <span class="kw">fn </span>compile_scalar_predicate&lt;C: ScalarPredicateCompiler&lt;<span class="macro-nonterminal">$t</span>&gt;&gt;(
+                        <span class="kw">fn </span>compile&lt;C: ScalarPredicateCompiler&lt;<span class="macro-nonterminal">$t</span>&gt;&gt;(
                             <span class="self">self</span>,
                             compiler: C,
                         ) -&gt; C::Result {
@@ -1448,6 +1551,7 @@
                         <span class="kw">const </span>PLURAL_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="macro">stringify!</span>(<span class="macro-nonterminal">$t</span>, s);
 
                         <span class="macro">build_scalar!</span>();
+                        <span class="macro">describe_scalar!</span>();
                     }
 
                     <span class="attr">#[sealed]
@@ -1516,18 +1620,11 @@
         }
     }
 
-    <span class="kw">impl </span>Predicate&lt;String&gt; <span class="kw">for </span>StringPredicate {
-        <span class="kw">fn </span>compile&lt;C: PredicateCompiler&lt;String&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result {
-            <span class="self">self</span>.compile_scalar_predicate(compiler.scalar())
-        }
-    }
+    <span class="kw">impl </span>Predicate&lt;String&gt; <span class="kw">for </span>StringPredicate {}
 
     <span class="attr">#[sealed]
     </span><span class="kw">impl </span>ScalarPredicate&lt;String&gt; <span class="kw">for </span>StringPredicate {
-        <span class="kw">fn </span>compile_scalar_predicate&lt;C: ScalarPredicateCompiler&lt;String&gt;&gt;(
-            <span class="self">self</span>,
-            compiler: C,
-        ) -&gt; C::Result {
+        <span class="kw">fn </span>compile&lt;C: ScalarPredicateCompiler&lt;String&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result {
             <span class="kw">match </span><span class="self">self </span>{
                 <span class="self">Self</span>::Cmp(cmp) =&gt; cmp.compile(compiler),
                 <span class="self">Self</span>::Is(val) =&gt; StringCmp::new(StringCmpOp::EQ, val).compile(compiler),
@@ -1607,6 +1704,7 @@
         <span class="kw">const </span>PLURAL_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Strings&quot;</span>;
 
         <span class="macro">build_scalar!</span>();
+        <span class="macro">describe_scalar!</span>();
     }
 
     <span class="attr">#[sealed]
@@ -1638,6 +1736,16 @@
 
     <span class="doccomment">/// A complex type in the relational GraphQL type system.
     </span><span class="kw">pub trait </span>Resource: Type&lt;Predicate = <span class="self">Self</span>::ResourcePredicate&gt; {
+        <span class="comment">// When `generic_const_exprs` stables, these can be converted to associated constants and
+        // the various `Array` types can be converted to constant sized arrays. This will
+        // clean the interface up considerably. Unfortunately, for now, it is unstable to use an
+        // associated constant in an array bound like `[T; Self::NUM_FIELDS]`, so we must settle for
+        // the slightly unwield `Array&lt;T, Self::NumFields&gt;`.
+        </span><span class="doccomment">/// The number of singular fields this resource has.
+        </span><span class="kw">type </span>NumFields: Length;
+        <span class="doccomment">/// The number of plural fields this resource has.
+        </span><span class="kw">type </span>NumPluralFields: Length;
+
         <span class="doccomment">/// Boolean predicates on this resource type.
         ///
         /// This is always the same type as [`Predicate`](Type::Predicate), but the alias
@@ -1655,6 +1763,69 @@
         /// It is an invariant that for all `T: Resource`,
         /// `T::build(builder) == T::builder_resource(builder.resource())`.
         </span><span class="kw">fn </span>build_resource&lt;B: ResourceBuilder&lt;<span class="self">Self</span>&gt;&gt;(builder: B) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, B::Error&gt;;
+
+        <span class="doccomment">/// Access the field `F` of this [`Resource`].
+        </span><span class="kw">fn </span>get&lt;F: Field&lt;Resource = <span class="self">Self</span>&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F::Type {
+            F::get(<span class="self">self</span>)
+        }
+
+        <span class="doccomment">/// Describe the structure and definition of this [`Resource`].
+        ///
+        /// This performs the same operation as [`describe`](Type::describe), but it can be called
+        /// directly with a [`ResourceVisitor`], instead of the more generic [`Visitor`]. This is
+        /// useful when it is known that a [`Type`] is actually a [`Resource`].
+        ///
+        /// It is an invariant that for all `T: Resource`,
+        /// `T::describe(visitor) == T::describe_resource(visitor.resource)`.
+        </span><span class="kw">fn </span>describe_resource&lt;V: ResourceVisitor&lt;<span class="self">Self</span>&gt;&gt;(visitor: V) -&gt; V::Output {
+            <span class="kw">struct </span>Visitor&lt;V&gt;(V);
+
+            <span class="kw">impl</span>&lt;T: Resource, V: ResourceVisitor&lt;T&gt;&gt; FieldVisitor&lt;T&gt; <span class="kw">for </span>Visitor&lt;V&gt; {
+                <span class="kw">type </span>Output = ();
+
+                <span class="kw">fn </span>visit&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+                    <span class="self">self</span>.<span class="number">0</span>.visit_field_in_place::&lt;F&gt;();
+                }
+            }
+
+            <span class="kw">impl</span>&lt;T: Resource, V: ResourceVisitor&lt;T&gt;&gt; PluralFieldVisitor&lt;T&gt; <span class="kw">for </span>Visitor&lt;V&gt; {
+                <span class="kw">type </span>Output = ();
+
+                <span class="kw">fn </span>visit&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+                    <span class="self">self</span>.<span class="number">0</span>.visit_plural_field_in_place::&lt;F&gt;();
+                }
+            }
+
+            <span class="kw">let </span><span class="kw-2">mut </span>visitor = Visitor(visitor);
+            <span class="self">Self</span>::describe_fields(<span class="kw-2">&amp;mut </span>visitor);
+            <span class="self">Self</span>::describe_plural_fields(<span class="kw-2">&amp;mut </span>visitor);
+            visitor.<span class="number">0</span>.end()
+        }
+
+        <span class="doccomment">/// Describe the fields of this resource.
+        </span><span class="kw">fn </span>describe_fields&lt;V: FieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
+            visitor: <span class="kw-2">&amp;mut </span>V,
+        ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumFields&gt;;
+
+        <span class="doccomment">/// Describe the plural fields of this resource.
+        </span><span class="kw">fn </span>describe_plural_fields&lt;V: PluralFieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
+            visitor: <span class="kw-2">&amp;mut </span>V,
+        ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumPluralFields&gt;;
+
+        <span class="doccomment">/// The names of this resource&#39;s singular fields.
+        </span><span class="kw">fn </span>field_names() -&gt; Array&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="self">Self</span>::NumFields&gt; {
+            <span class="kw">struct </span>Visitor;
+
+            <span class="kw">impl</span>&lt;T: Resource&gt; FieldVisitor&lt;T&gt; <span class="kw">for </span>Visitor {
+                <span class="kw">type </span>Output = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+                <span class="kw">fn </span>visit&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+                    F::NAME
+                }
+            }
+
+            <span class="self">Self</span>::describe_fields(<span class="kw-2">&amp;mut </span>Visitor)
+        }
     }
 
     <span class="doccomment">/// A backend specific interface to query results, used to reconstruct a [`Resource`].
@@ -1667,41 +1838,24 @@
     }
 
     <span class="doccomment">/// A boolean predicate on a resource type `T`.
-    </span><span class="kw">pub trait </span>ResourcePredicate&lt;T: Resource&gt;: Predicate&lt;T&gt; {
-        <span class="doccomment">/// Compile this predicate into a form which the backend can execute.
+    </span><span class="kw">pub trait </span>ResourcePredicate&lt;T: Resource&lt;ResourcePredicate = <span class="self">Self</span>&gt;&gt;: Predicate&lt;T&gt; {
+        <span class="doccomment">/// Get the sub-predicate on the field `F` of resource `T`, if there is one.
+        </span><span class="kw">fn </span>get&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>&lt;F::Type <span class="kw">as </span>Type&gt;::Predicate&gt; {
+            F::get_predicate(<span class="self">self</span>)
+        }
+
+        <span class="doccomment">/// Get the sub-predicate on the field `F` of resource `T`, if there is one.
+        </span><span class="kw">fn </span>get_mut&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>&lt;F::Type <span class="kw">as </span>Type&gt;::Predicate&gt; {
+            F::get_predicate_mut(<span class="self">self</span>)
+        }
+
+        <span class="doccomment">/// Take the sub-predicate on the field `F` of resource `T`, if there is one.
         ///
-        /// This performs the same operation as [`compile`](Predicate::compile), but it can be
-        /// called directly with a [`ResourcePredicateCompiler`], instead of the more generic
-        /// [`PredicateCompiler`]. This is useful when it is known that a [`Predicate`] is actually
-        /// a [`ResourcePredicate`].
-        ///
-        /// It is an invariant that for all `T: ResourcePredicate` and `x: T`,
-        /// `x.compile(compiler) == x.compile_resource_predicate(compiler.resource())`.
-        </span><span class="kw">fn </span>compile_resource_predicate&lt;C: ResourcePredicateCompiler&lt;T&gt;&gt;(
-            <span class="self">self</span>,
-            compiler: C,
-        ) -&gt; C::Result;
-    }
-
-    <span class="doccomment">/// A generic interface to a backend-specific compiler for predicates on a resource type `T`.
-    ///
-    /// A [`ResourcePredicate`] can use this interface to instruct an arbitrary backend on how to
-    /// compile itself into a backend-specific format.
-    </span><span class="kw">pub trait </span>ResourcePredicateCompiler&lt;T: Resource&gt; {
-        <span class="doccomment">/// The backend-specific compilation result.
-        </span><span class="kw">type </span><span class="prelude-ty">Result</span>;
-
-        <span class="doccomment">/// Add a predicate on a field of this resource.
-        </span><span class="kw">fn </span>field&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="self">self</span>, predicate: &lt;F::Type <span class="kw">as </span>Type&gt;::Predicate) -&gt; <span class="self">Self</span>;
-
-        <span class="doccomment">/// Add a predicate on a plural field of this resource.
-        </span><span class="kw">fn </span>plural_field&lt;F: PluralField&lt;Resource = T&gt;&gt;(
-            <span class="self">self</span>,
-            predicate: PluralFieldPredicate&lt;F&gt;,
-        ) -&gt; <span class="self">Self</span>;
-
-        <span class="doccomment">/// Finish compilation and extract the result.
-        </span><span class="kw">fn </span>end(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Result;
+        /// The next time this function or [`get`](Self::get) is called on the same field, it will
+        /// return [`None`], since the field has been taken.
+        </span><span class="kw">fn </span>take&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;F::Type <span class="kw">as </span>Type&gt;::Predicate&gt; {
+            F::take_predicate(<span class="self">self</span>)
+        }
     }
 
     <span class="doccomment">/// Metadata about a field of a resource.
@@ -1714,6 +1868,28 @@
 
         <span class="doccomment">/// The name of the field.
         </span><span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+        <span class="doccomment">/// Access this field of a particular [`Resource`].
+        </span><span class="kw">fn </span>get(resource: <span class="kw-2">&amp;</span><span class="self">Self</span>::Resource) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Type;
+
+        <span class="doccomment">/// Access the sub-predicate used to filter this field in a [`ResourcePredicate`].
+        </span><span class="kw">fn </span>get_predicate(
+            predicate: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::ResourcePredicate,
+        ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Predicate&gt;;
+
+        <span class="doccomment">/// Access the sub-predicate used to filter this field in a [`ResourcePredicate`].
+        </span><span class="kw">fn </span>get_predicate_mut(
+            predicate: <span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::ResourcePredicate,
+        ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Predicate&gt;;
+
+        <span class="doccomment">/// Take the sub-predicate used to fitler this field in a [`ResourcePredicate`].
+        ///
+        /// The next time this function, [`get_predicate`](Self::get_predicate), or
+        /// [`get_predicate_mut`](Self::get_predicate_mut) is called on the same field, it will
+        /// return [`None`], since the field has been taken.
+        </span><span class="kw">fn </span>take_predicate(
+            predicate: <span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::ResourcePredicate,
+        ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Predicate&gt;;
     }
 
     <span class="doccomment">/// Metadata about a plural field of a resource.
@@ -1731,6 +1907,54 @@
     <span class="doccomment">/// The [`PluralPredicate`] used to filter a resource by its [`PluralField`] `F`.
     </span><span class="kw">pub type </span>PluralFieldPredicate&lt;F&gt; =
         &lt;&lt;&lt;F <span class="kw">as </span>PluralField&gt;::Type <span class="kw">as </span>PluralType&gt;::Singular <span class="kw">as </span>Type&gt;::PluralPredicate;
+
+    <span class="doccomment">/// Visitor which allows a [`Resource`] to describe itself to a backend.
+    ///
+    /// The implementation of this visitor will be backend-specific, but a [`Resource`] can use this
+    /// backend-agnostic interface to describe its structure and fields to any backend.
+    </span><span class="kw">pub trait </span>ResourceVisitor&lt;T: Resource&gt;: Sized {
+        <span class="doccomment">/// An output summarizing the results of visiting `T`.
+        </span><span class="kw">type </span>Output;
+
+        <span class="doccomment">/// Tell the visitor about a field `F` of type `T`.
+        </span><span class="kw">fn </span>visit_field&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+            <span class="self">self</span>.visit_field_in_place::&lt;F&gt;();
+            <span class="self">self
+        </span>}
+
+        <span class="doccomment">/// Tell the visitor about a field `F` of type `T`, mutating the visitor.
+        </span><span class="kw">fn </span>visit_field_in_place&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+
+        <span class="doccomment">/// Tell the visitor about a plural field `F` of type `T`.
+        </span><span class="kw">fn </span>visit_plural_field&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+            <span class="self">self</span>.visit_plural_field_in_place::&lt;F&gt;();
+            <span class="self">self
+        </span>}
+
+        <span class="doccomment">/// Tell the visitor about a plural field `F` of type `T`, mutating the visitor.
+        </span><span class="kw">fn </span>visit_plural_field_in_place&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+
+        <span class="doccomment">/// Finish visiting the type and collect the output.
+        </span><span class="kw">fn </span>end(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
+    }
+
+    <span class="doccomment">/// Visitor which allows fields of a [`Resource`] to describe themselves to a backend.
+    </span><span class="kw">pub trait </span>FieldVisitor&lt;T: Resource&gt; {
+        <span class="doccomment">/// An output summarizing the results of visiting `T`s singular fields.
+        </span><span class="kw">type </span>Output;
+
+        <span class="doccomment">/// Tell the visitor about a field `F`.
+        </span><span class="kw">fn </span>visit&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
+    }
+
+    <span class="doccomment">/// Visitor which allows plural fields of a [`Resource`] to describe themselves to a backend.
+    </span><span class="kw">pub trait </span>PluralFieldVisitor&lt;T: Resource&gt; {
+        <span class="doccomment">/// An output summarizing the results of visiting `T`s plural fields.
+        </span><span class="kw">type </span>Output;
+
+        <span class="doccomment">/// Tell the visitor about a field `F`.
+        </span><span class="kw">fn </span>visit&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
+    }
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="model" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.2 (9eb3afe9e 2023-03-27)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

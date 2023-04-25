@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":[["Error","Errors encountered when solving GraphQL queries."]],"fn":[["query","Search for items of resource `T` matching `filter`."]]};
