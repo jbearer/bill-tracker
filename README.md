@@ -47,6 +47,13 @@ cargo build --workspace
 
 Use `cargo clippy` to run the linter and `cargo test` to run unit tests.
 
+Note that some of the Cargo tests require a test PostgreSQL server to be running. The first time you
+run these tests, you will first need to run `bin/init-test-db` to create the test database cluster.
+Therafter, you can use `bin/start-test-db` to start a server for that cluster. Once the server is
+running, set `POSTGRES_TESTS=1` to enable these tests, and then run `cargo test` as usual.
+`POSTGRES_TESTS_PORT` can be used to change the port that the PostgreSQL server runs on (the default
+is 5432, the default for Postgres in general).
+
 ## Building the React client
 
 There is a browser client for the app in `clients/browser`. This is a React Typescript project. To

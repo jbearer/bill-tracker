@@ -22,6 +22,10 @@
         nixWithFlakes = pkgs.writeShellScriptBin "nix" ''
           exec ${pkgs.nixVersions.stable}/bin/nix --experimental-features "nix-command flakes" "$@"
         '';
+        devPkgs = with pkgs;
+            [
+              postgresql
+            ];
         rustDeps = with pkgs;
             [
               openssl
@@ -49,11 +53,12 @@
             nixWithFlakes
             git
             rustToolchain
-          ] ++ rustDeps ++ nodeDeps;
+          ] ++ devPkgs ++ rustDeps ++ nodeDeps;
           shellHook = "export CC=${pkgs.clang}/bin/clang";
           OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
           OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
           RUST_LOG = "info";
+          RUST_BACKTRACE = "1";
         };
         devShells = {
           nightlyShell = pkgs.mkShell {
@@ -62,8 +67,9 @@
               nixWithFlakes
               nightlyToolchain
               cargo-expand
-            ] ++ rustDeps ++ nodeDeps ;
+            ] ++ devPkgs ++ rustDeps ++ nodeDeps ;
             RUST_LOG = "info";
+            RUST_BACKTRACE = "1";
           };
         };
       }

@@ -78,6 +78,7 @@ pub trait DataSource {
 }
 
 /// A specification of a page to load in a paginated connection.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PageRequest<Cursor> {
     /// Limit the results to the first N items that otherwise match the request.
     pub first: Option<usize>,

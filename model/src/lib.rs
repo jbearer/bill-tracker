@@ -22,6 +22,8 @@ use generic_array::{
     ArrayLength, GenericArray,
 };
 use std::fmt::{self, Debug, Formatter};
+use std::sync::Once;
+use tracing_subscriber::EnvFilter;
 
 pub use generic_array::typenum;
 
@@ -30,6 +32,19 @@ pub mod sql;
 
 /// The [`DataSource`](graphql::backend::DataSource) used as a backend for the GraphQL API.
 pub use sql::PostgresDataSource as DataSource;
+
+/// Initialize tracing.
+pub fn init_logging() {
+    static ONCE: Once = Once::new();
+
+    ONCE.call_once(|| {
+        color_eyre::install().unwrap();
+        tracing_subscriber::fmt()
+            .with_ansi(true)
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
+    });
+}
 
 /// A convenience for working with [`GenericArray`].
 ///

@@ -16,11 +16,8 @@ use futures::{
 use itertools::Itertools;
 use snafu::Snafu;
 use std::borrow::Cow;
-use std::fmt::Display;
-use tokio_postgres::{
-    types::{accepts, to_sql_checked, FromSql, IsNull, ToSql, Type},
-    NoTls,
-};
+use std::fmt::{Debug, Display};
+use tokio_postgres::types::{accepts, to_sql_checked, FromSql, IsNull, ToSql, Type};
 
 pub use async_postgres::{Config, Row};
 
@@ -30,6 +27,9 @@ pub enum Error {
     #[from]
     Sql {
         source: async_postgres::Error,
+    },
+    Connect {
+        source: std::io::Error,
     },
     OutOfRange {
         ty: &'static str,
@@ -56,10 +56,34 @@ pub struct Connection(tokio_postgres::Client);
 
 impl Connection {
     /// Establish a new connection with the given [`Config`].
-    pub async fn new(config: &Config) -> Result<Self, Error> {
-        let (client, conn) = config.connect(NoTls).await?;
+    pub async fn new(config: Config) -> Result<Self, Error> {
+        let (client, conn) = async_postgres::connect(config)
+            .await
+            .map_err(|source| Error::Connect { source })?;
         spawn(conn);
         Ok(Self(client))
+    }
+
+    async fn query<'a, I>(
+        &self,
+        statement: &str,
+        params: I,
+    ) -> Result<BoxStream<'static, Result<Row, Error>>, Error>
+    where
+        I: Debug + IntoIterator<Item = &'a Value>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        tracing::info!(?params, "{}", statement);
+        let params = params.into_iter().map(|param| {
+            let param: &dyn ToSql = param;
+            param
+        });
+        let stream = self
+            .0
+            .query_raw(statement, params)
+            .await
+            .map_err(Error::from)?;
+        Ok(stream.map_err(Error::from).boxed())
     }
 }
 
@@ -88,12 +112,11 @@ impl super::Connection for Connection {
                 format!("{} {}", col.name(), ty)
             })
             .join(",");
-        self.0
-            .execute(
-                format!("CREATE TABLE IF NOT EXISTS {table} ({columns})").as_str(),
-                &[],
-            )
-            .await?;
+        self.query(
+            format!("CREATE TABLE IF NOT EXISTS {table} ({columns})").as_str(),
+            [],
+        )
+        .await?;
         Ok(())
     }
 
@@ -181,17 +204,11 @@ impl<'a> super::Select for Select<'a> {
             // Construct the SQL statement.
             let statement = format!("SELECT {columns} FROM {table} {clauses}");
 
-            // Borrow parameters.
-            let params = query.params.iter().map(|param| {
-                let param: &dyn ToSql = param;
-                param
-            });
-
             // Run the query.
-            query.conn.0.query_raw(statement.as_str(), params).await
+            let rows = query.conn.query(statement.as_str(), &query.params).await?;
+            Ok(rows)
         }
         .try_flatten_stream()
-        .map_err(Error::from)
         .boxed()
     }
 }
@@ -246,21 +263,16 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
                         // the value itself into the query as a parameter to prevent SQL injection.
                         let param_num = i * N::USIZE + j;
                         // Params are 1-indexed.
-                        (param_num + 1).to_string()
+                        format!("${}", param_num + 1)
                     })
                     .join(",");
                 format!("({values})")
             })
             .join(",");
-        let params = self.params.iter().map(|param| {
-            let param: &dyn ToSql = param;
-            param
-        });
         self.conn
-            .0
-            .execute_raw(
+            .query(
                 format!("INSERT INTO {} ({}) VALUES {}", self.table, columns, rows).as_str(),
-                params,
+                &self.params,
             )
             .await?;
         Ok(())
@@ -320,4 +332,136 @@ impl<'a> FromSql<'a> for Value {
     }
 
     accepts!(INT4, INT8, TEXT);
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{
+        graphql::{
+            backend::DataSource,
+            type_system::{IntCmpOp, Resource, Type, Value},
+        },
+        init_logging,
+        sql::data_source::SqlDataSource,
+    };
+    use rand::RngCore;
+    use std::env;
+    use std::process::Command;
+    use std::str;
+
+    struct Db {
+        name: String,
+        port: u16,
+    }
+
+    impl Db {
+        fn create() -> Option<Self> {
+            if env::var("POSTGRES_TESTS").is_err() {
+                tracing::warn!("skipping postgres test since POSTGRES_TESTS are not enabled");
+                return None;
+            }
+
+            let name = format!("db{}", rand::thread_rng().next_u64());
+            let port = env::var("POSTGRES_TESTS_PORT")
+                .map(|port| port.parse().unwrap())
+                .unwrap_or(5432);
+
+            tracing::info!("Creating test DB {name} on port {port}");
+            let output = Command::new("createdb")
+                .arg("-p")
+                .arg(&port.to_string())
+                .arg(&name)
+                .output()
+                .unwrap();
+            if !output.status.success() {
+                panic!(
+                    "createdb failed: {}",
+                    str::from_utf8(&output.stderr).unwrap()
+                );
+            }
+
+            Some(Self { name, port })
+        }
+
+        async fn connect(&self) -> Connection {
+            let mut config = Config::default();
+            config
+                .dbname(&self.name)
+                .user("test")
+                .host("localhost")
+                .port(self.port);
+            Connection::new(config).await.unwrap()
+        }
+    }
+
+    impl Drop for Db {
+        fn drop(&mut self) {
+            tracing::info!("Dropping test DB {}", self.name);
+            let output = Command::new("dropdb")
+                .arg("-p")
+                .arg(&self.port.to_string())
+                .arg(&self.name)
+                .output()
+                .unwrap();
+            if !output.status.success() {
+                tracing::error!("dropdb failed: {}", str::from_utf8(&output.stderr).unwrap());
+            }
+        }
+    }
+
+    macro_rules! postgres_test {
+        () => {
+            match Db::create() {
+                Some(db) => db,
+                None => return,
+            }
+        };
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Simple {
+        field: i32,
+    }
+
+    #[async_std::test]
+    async fn test_postgres_data_source() {
+        init_logging();
+        let db = postgres_test!();
+        let mut conn = SqlDataSource::from(db.connect().await);
+
+        let items = [Simple { field: 0 }, Simple { field: 1 }];
+
+        conn.register::<Simple>().await.unwrap();
+        conn.insert(items.clone()).await.unwrap();
+
+        // Select all elements.
+        let results = conn.query::<Simple>(None).await.unwrap();
+        let page = conn
+            .load_page(&results, Default::default())
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|edge| edge.node)
+            .collect::<Vec<_>>();
+        assert_eq!(page, items);
+
+        // Select with a filter.
+        let results = conn
+            .query::<Simple>(Some(
+                Simple::has()
+                    .field(<i32 as Type>::Predicate::cmp(IntCmpOp::EQ, Value::Lit(1)))
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        let page = conn
+            .load_page(&results, Default::default())
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|edge| edge.node)
+            .collect::<Vec<_>>();
+        assert_eq!(page, &items[1..]);
+    }
 }

@@ -15,6 +15,7 @@ required-features = ["clap"]
 [dependencies]
 async-graphql = "5.0"
 async-trait = "0.1"
+color-eyre = "0.6"
 derivative = "2.2"
 derive_more = "0.99"
 generic-array = "0.14"
@@ -22,6 +23,8 @@ is_type = "0.2"
 model-derive = { path = "../model-derive" }
 sealed = "0.4"
 snafu = "0.7"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # SQL dependencies
 async-postgres = "0.5"
@@ -38,3 +41,4 @@ clap = { version = "4.2", features = ["derive"], optional = true }
 
 [dev-dependencies]
 proptest = "1.1"
+rand = "0.8"
