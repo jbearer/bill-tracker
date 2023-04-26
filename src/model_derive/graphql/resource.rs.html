@@ -564,6 +564,39 @@
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Derive macro for the `Resource` trait.
 
 </span><span class="kw">use </span><span class="kw">super</span>::graphql_path;
@@ -614,6 +647,13 @@
         </span><span class="kw">_ </span>=&gt; <span class="macro">quote!</span>(#vis),
     })
     .unwrap();
+    <span class="comment">// Field metas are generated in a nested module, so they need to be exported one additional
+    // level to be visible in the parent module.
+    </span><span class="kw">let </span>field_export: Visibility = syn::parse2(<span class="kw">match </span><span class="kw-2">&amp;</span>vis {
+        Visibility::Inherited =&gt; <span class="macro">quote!</span>(<span class="kw">pub</span>(<span class="kw">in </span><span class="kw">super</span>::<span class="kw">super</span>)),
+        <span class="kw">_ </span>=&gt; <span class="macro">quote!</span>(#vis),
+    })
+    .unwrap();
 
     <span class="comment">// Get fields, filtering out skipped ones.
     </span><span class="kw">let </span>Fields::Named(fields) = s.fields <span class="kw">else </span>{
@@ -658,6 +698,18 @@
     );
     <span class="kw">let </span>plural_pred_doc = <span class="macro">format!</span>(<span class="string">&quot;A predicate used to filter collections of {}.&quot;</span>, plural_name);
 
+    <span class="comment">// Get the ID field.
+    </span><span class="kw">let </span>id_field = fields
+        .iter()
+        .find(|f| field_is_id(<span class="kw-2">&amp;</span>p, f))
+        .expect(<span class="string">&quot;Resource must have ID field&quot;</span>);
+    <span class="kw">let </span>id_name = field_meta_name(
+        id_field
+            .ident
+            .as_ref()
+            .expect(<span class="string">&quot;Resource fields must be named&quot;</span>),
+    );
+
     <span class="comment">// If this struct has a _primary field_, it gets a couple of extra predicate options. In
     // addition to filtering by applying a predicate to its fields, you can implicitly filter based
     // on the primary field, which leads to shorter, more readable queries. In particular, you can
@@ -684,7 +736,7 @@
     <span class="comment">// Generate marker types to hold metadta for each field.
     </span><span class="kw">let </span>field_metas = fields
         .iter()
-        .map(|f| generate_field_meta(<span class="kw-2">&amp;</span>export, <span class="kw-2">&amp;</span>name, f));
+        .map(|f| generate_field_meta(<span class="kw-2">&amp;</span>field_export, <span class="kw-2">&amp;</span>name, f));
     <span class="kw">let </span>field_meta_impls = fields
         .iter()
         .map(|f| generate_field_meta_impl(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>pred_name, f, primary_field));
@@ -855,6 +907,8 @@
             <span class="kw">impl </span>Resource <span class="kw">for </span>#name {
                 <span class="kw">type </span>NumFields = typenum::#num_singular_fields;
                 <span class="kw">type </span>NumPluralFields = typenum::#num_plural_fields;
+
+                <span class="kw">type </span>Id = fields::#id_name;
 
                 <span class="kw">type </span>ResourcePredicate = #pred_name;
 
@@ -1093,6 +1147,18 @@
         }
     }
 }
+
+<span class="kw">fn </span>field_is_id(p: <span class="kw-2">&amp;</span>AttrParser, f: <span class="kw-2">&amp;</span>Field) -&gt; bool {
+    <span class="comment">// Check if the field is explicitly an ID.
+    </span><span class="kw">if </span>p.has_bool(<span class="kw-2">&amp;</span>f.attrs, <span class="string">&quot;id&quot;</span>) {
+        <span class="kw">return </span><span class="bool-val">true</span>;
+    }
+
+    <span class="comment">// Check if the field has type `Id`.
+    </span><span class="kw">let </span>Type::Path(path) = <span class="kw-2">&amp;</span>f.ty <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false</span>; };
+    <span class="kw">let </span><span class="prelude-val">Some</span>(type_name) = path.path.segments.last() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false</span>; };
+    type_name.ident == <span class="string">&quot;Id&quot;
+</span>}
 
 <span class="kw">fn </span>field_is_plural(p: <span class="kw-2">&amp;</span>AttrParser, f: <span class="kw-2">&amp;</span>Field) -&gt; bool {
     <span class="comment">// Check if the field is explicitly plural.

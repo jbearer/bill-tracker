@@ -110,6 +110,15 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The schema describing the entities and relationships in the GraphQL API.
 
 </span><span class="kw">use </span><span class="kw">super</span>::prelude::<span class="kw-2">*</span>;
@@ -117,6 +126,7 @@
 <span class="doccomment">/// A US state.
 </span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>State {
+    id: Id,
     <span class="doccomment">/// The 2-letter abbreviation for this state as recognized by the US postal service.
     </span><span class="attr">#[resource(primary)]
     </span>abbreviation: String,
@@ -133,15 +143,19 @@
 <span class="doccomment">/// A subdivision of a [`State`] with its own representatives in the state legislature.
 </span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>District {
+    id: Id,
     <span class="doccomment">/// The state containing this district.
     </span>state: State,
     <span class="doccomment">/// The name of the district.
-    </span>name: String,
-    <span class="doccomment">/// The district ID.
     ///
     /// This is usually a number (like &quot;37&quot; in CA-37), but not always -- some states have an
     /// at-large district with ID &quot;AL&quot;.
-    </span>id: String,
+    </span>name: String,
+    <span class="doccomment">/// The locale of the district.
+    ///
+    /// This is usually the name of the most populous city or county in the district. It is less
+    /// precise but easier to understand than the `name`.
+    </span>locale: String,
     <span class="doccomment">/// Representatives of this district in the state legislature.
     </span>representatives: Many&lt;D, Legislator&gt;,
 }
@@ -149,6 +163,7 @@
 <span class="doccomment">/// A piece of legislation.
 </span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>Bill {
+    id: Id,
     <span class="doccomment">/// The name of the bill.
     ///
     /// This is frequently a combination of a chamber identifier (like &quot;SB&quot; for senate bill) and a
@@ -171,6 +186,7 @@
 <span class="doccomment">/// A state lawmaker.
 </span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>Legislator {
+    id: Id,
     <span class="doccomment">/// The legislator&#39;s legal name.
     </span>name: String,
     <span class="doccomment">/// The state in which the legislator serves.
@@ -187,6 +203,7 @@
 </span><span class="attr">#[derive(Clone, Debug, Resource)]
 #[resource(plural(Parties))]
 </span><span class="kw">pub struct </span>Party {
+    id: Id,
     <span class="doccomment">/// A shortened form of the party&#39;s name.
     ///
     /// This is frequently a single letter as in &quot;R&quot; (for Republican) or &quot;D&quot; (for Democrat). For
@@ -202,6 +219,7 @@
 <span class="doccomment">/// A political issue.
 </span><span class="attr">#[derive(Clone, Debug, Resource)]
 </span><span class="kw">pub struct </span>Issue {
+    id: Id,
     <span class="doccomment">/// A short name for the issue.
     </span>name: String,
     <span class="doccomment">/// Bills pertaining to this issue.

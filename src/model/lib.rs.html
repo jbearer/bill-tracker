@@ -249,6 +249,45 @@
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Data model for bill-related information.
 //!
 //! The data model is presented in two equivalent instantiations, one for GraphQL and one for
@@ -267,7 +306,8 @@
 //! to a [type system](graphql::type_system) for relational ontologies. The SQL implementation is
 //! thus completely agnostic to the domain-specific GraphQL schema.
 
-</span><span class="kw">use </span>derive_more::{Deref, DerefMut, From, Into};
+</span><span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>derive_more::{Deref, DerefMut, From, Into};
 <span class="kw">use </span>generic_array::{
     typenum::{UInt, UTerm, Unsigned, B0, B1},
     ArrayLength, GenericArray,
@@ -325,7 +365,8 @@
 }
 
 <span class="doccomment">/// An array of type `T` with constant length `N`.
-</span><span class="attr">#[derive(Clone, Default, Deref, DerefMut, From, Into, PartialEq, Eq)]
+</span><span class="attr">#[derive(Derivative, Deref, DerefMut, From, Into, PartialEq, Eq)]
+#[derivative(Clone(bound = <span class="string">&quot;T: Clone&quot;</span>), Default(bound = <span class="string">&quot;T: Default&quot;</span>))]
 </span><span class="kw">pub struct </span>Array&lt;T, N: Length&gt;(GenericArray&lt;T, N::Of&lt;T&gt;&gt;);
 
 <span class="kw">impl</span>&lt;T, N: Length&gt; IntoIterator <span class="kw">for </span>Array&lt;T, N&gt; {
@@ -432,6 +473,22 @@
             }
         }
     }
+
+    <span class="doccomment">/// Join two arrays of the same length into a single array of pairs of elements from each.
+    </span><span class="kw">pub fn </span>zip&lt;U&gt;(<span class="self">self</span>, other: Array&lt;U, N&gt;) -&gt; Array&lt;(T, U), N&gt; {
+        Array::from_exact_iter(<span class="self">self</span>.into_iter().zip(other)).unwrap()
+    }
+}
+
+<span class="kw">impl</span>&lt;T, U, N: Length&gt; Array&lt;(T, U), N&gt; {
+    <span class="doccomment">/// Split an array of pairs into a pair of arrays.
+    </span><span class="kw">pub fn </span>unzip(<span class="self">self</span>) -&gt; (Array&lt;T, N&gt;, Array&lt;U, N&gt;) {
+        <span class="kw">let </span>(l, r): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) = <span class="self">self</span>.into_iter().unzip();
+        (
+            Array::from_exact_iter(l).unwrap(),
+            Array::from_exact_iter(r).unwrap(),
+        )
+    }
 }
 
 <span class="kw">impl</span>&lt;T: Debug, N: Length&gt; Debug <span class="kw">for </span>Array&lt;T, N&gt; {
@@ -476,6 +533,22 @@
         <span class="macro">assert_eq!</span>(arr, <span class="macro">array!</span>[usize; <span class="number">0</span>]);
     }
 
+    <span class="kw">fn </span>array&lt;T: Arbitrary&gt;() -&gt; <span class="kw">impl </span>Strategy&lt;Value = Array&lt;T, U10&gt;&gt; {
+        [
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+            any::&lt;T&gt;(),
+        ]
+        .prop_map(Array::from)
+    }
+
     <span class="kw">fn </span>permutation() -&gt; <span class="kw">impl </span>Strategy&lt;Value = Array&lt;usize, U10&gt;&gt; {
         any::&lt;Vec&lt;(usize, usize)&gt;&gt;().prop_map(|swaps| {
             <span class="kw">let </span><span class="kw-2">mut </span>perm = <span class="macro">array!</span>[usize; <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>];
@@ -497,6 +570,11 @@
             <span class="kw">let </span><span class="kw-2">mut </span>array = <span class="macro">array!</span>[usize; <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>];
             array.permute(<span class="kw-2">&amp;</span>perm);
             <span class="macro">prop_assert_eq!</span>(array, perm);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_zip_unzip_inverse(a <span class="kw">in </span>array::&lt;usize&gt;(), b <span class="kw">in </span>array::&lt;String&gt;()) {
+            <span class="macro">prop_assert_eq!</span>(a.clone().zip(b.clone()).unzip(), (a, b));
         }
     }
 }

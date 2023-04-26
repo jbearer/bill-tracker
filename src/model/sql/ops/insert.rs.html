@@ -116,6 +116,11 @@
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Compilation of insert from high-level GraphQL types into low-level SQL types.
 
 </span><span class="kw">use super</span>::{column_name_of_field, scalar_to_value, table_name, Error};
@@ -187,13 +192,14 @@
             db::{mock, SchemaColumn, Type},
             ops,
         },
-        typenum::U2,
+        typenum::U3,
     };
-    <span class="kw">use </span>gql::Resource;
+    <span class="kw">use </span>gql::{Id, Resource};
 
     <span class="doccomment">/// A simple test resource with scalar fields.
     </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Resource)]
     </span><span class="kw">struct </span>TestResource {
+        id: Id,
         field1: i32,
         field2: String,
     }
@@ -201,9 +207,10 @@
     <span class="attr">#[async_std::test]
     </span><span class="kw">async fn </span>test_round_trip_no_relations() {
         <span class="kw">let </span>db = mock::Connection::create();
-        db.create_table::&lt;U2&gt;(
+        db.create_table::&lt;U3&gt;(
             <span class="string">&quot;test_resources&quot;</span>,
             <span class="macro">array!</span>[SchemaColumn;
+                SchemaColumn::new(<span class="string">&quot;id&quot;</span>, Type::Serial),
                 SchemaColumn::new(<span class="string">&quot;field1&quot;</span>, Type::Int4),
                 SchemaColumn::new(<span class="string">&quot;field2&quot;</span>, Type::Text),
             ],
@@ -213,14 +220,17 @@
 
         <span class="kw">let </span>resources = [
             TestResource {
+                id: <span class="number">0</span>,
                 field1: <span class="number">0</span>,
                 field2: <span class="string">&quot;foo&quot;</span>.into(),
             },
             TestResource {
+                id: <span class="number">1</span>,
                 field1: <span class="number">1</span>,
                 field2: <span class="string">&quot;bar&quot;</span>.into(),
             },
             TestResource {
+                id: <span class="number">2</span>,
                 field1: <span class="number">1</span>,
                 field2: <span class="string">&quot;baz&quot;</span>.into(),
             },

@@ -977,6 +977,30 @@
 <a href="#977" id="977">977</a>
 <a href="#978" id="978">978</a>
 <a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Type system for a relational GraphQL API.
 //!
 //! A relational GraphQL API is one which allows the client to filter results based on complex
@@ -1010,6 +1034,7 @@
 <span class="kw">use </span>derive_more::Display;
 <span class="kw">use </span>is_type::Is;
 <span class="kw">use </span>sealed::sealed;
+<span class="kw">use </span>std::any::TypeId;
 <span class="kw">use </span>std::error::Error;
 <span class="kw">use </span>std::fmt::Display;
 
@@ -1403,7 +1428,15 @@
     }
 
     <span class="macro">macro_rules! </span>int_scalars {
-        ($((<span class="macro-nonterminal">$t</span>:ty, <span class="macro-nonterminal">$visit</span>:ident, <span class="macro-nonterminal">$</span><span class="kw">mod</span>:<span class="macro-nonterminal">ident</span>)),+ $(,)<span class="question-mark">?</span>) =&gt; {
+        ($((
+            <span class="macro-nonterminal">$t</span>:ty,
+            <span class="macro-nonterminal">$visit</span>:ident,
+            <span class="macro-nonterminal">$</span><span class="kw">mod</span>:<span class="macro-nonterminal">ident</span>,
+            <span class="macro-nonterminal">$pred_name</span>:expr,
+            <span class="macro-nonterminal">$cmp_name</span>:expr,
+            <span class="macro-nonterminal">$quant_name</span>:expr,
+            <span class="macro-nonterminal">$plural_pred_name</span>:expr
+        )),+ $(,)<span class="question-mark">?</span>) =&gt; {
             $(
                 <span class="kw">pub mod </span><span class="macro-nonterminal">$</span><span class="kw">mod </span>{
                     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -1420,6 +1453,7 @@
                         Hash,
                         gql::OneofObject,
                     )]
+                    #[graphql(name = <span class="macro-nonterminal">$pred_name</span>)]
                     </span><span class="kw">pub enum </span>Predicate {
                         <span class="doccomment">/// Satisfied if the comparison is true.
                         </span>Cmp(Cmp),
@@ -1466,6 +1500,7 @@
                         Hash,
                         gql::InputObject,
                     )]
+                    #[graphql(name = <span class="macro-nonterminal">$cmp_name</span>)]
                     </span><span class="kw">pub struct </span>Cmp {
                         <span class="doccomment">/// The type of comparison.
                         </span>op: IntCmpOp,
@@ -1501,6 +1536,7 @@
                         Hash,
                         gql::InputObject,
                     )]
+                    #[graphql(name = <span class="macro-nonterminal">$quant_name</span>)]
                     </span><span class="kw">pub struct </span>QuantifiedPredicate {
                         <span class="doccomment">/// The minimum or maximum number of items which must match.
                         </span>quantity: usize,
@@ -1520,6 +1556,7 @@
                         Hash,
                         gql::OneofObject,
                     )]
+                    #[graphql(name = <span class="macro-nonterminal">$plural_pred_name</span>)]
                     </span><span class="kw">pub enum </span>PluralPredicate {
                         <span class="doccomment">/// Matches if at least some number of items in the collection match a
                         /// predicate.
@@ -1577,16 +1614,19 @@
     }
 
     <span class="macro">int_scalars! </span>{
-        (i32, visit_i32, i32_scalar),
-        (i64, visit_i64, i64_scalar),
-        (u32, visit_u32, u32_scalar),
-        (u64, visit_u64, u64_scalar),
+        (i32, visit_i32, i32_scalar, <span class="string">&quot;i32Predicate&quot;</span>, <span class="string">&quot;i32Cmp&quot;</span>, <span class="string">&quot;Quantifiedi32Predicate&quot;</span>, <span class="string">&quot;i32sPredicate&quot;</span>),
+        (i64, visit_i64, i64_scalar, <span class="string">&quot;i64Predicate&quot;</span>, <span class="string">&quot;i64Cmp&quot;</span>, <span class="string">&quot;Quantifiedi64Predicate&quot;</span>, <span class="string">&quot;i64sPredicate&quot;</span>),
+        (u32, visit_u32, u32_scalar, <span class="string">&quot;u32Predicate&quot;</span>, <span class="string">&quot;u32Cmp&quot;</span>, <span class="string">&quot;Quantifiedu32Predicate&quot;</span>, <span class="string">&quot;u32sPredicate&quot;</span>),
+        (u64, visit_u64, u64_scalar, <span class="string">&quot;u64Predicate&quot;</span>, <span class="string">&quot;u64Cmp&quot;</span>, <span class="string">&quot;Quantifiedu64Predicate&quot;</span>, <span class="string">&quot;u64sPredicate&quot;</span>),
     }
 
     <span class="kw">pub use </span>i32_scalar::Trait <span class="kw">as </span>I32Scalar;
     <span class="kw">pub use </span>i64_scalar::Trait <span class="kw">as </span>I64Scalar;
     <span class="kw">pub use </span>u32_scalar::Trait <span class="kw">as </span>U32Scalar;
     <span class="kw">pub use </span>u64_scalar::Trait <span class="kw">as </span>U64Scalar;
+
+    <span class="doccomment">/// A type for unique, sequentially increasing IDs.
+    </span><span class="kw">pub type </span>Id = i32;
 
     <span class="doccomment">/// A string scalar.
     ///
@@ -1746,6 +1786,9 @@
         <span class="doccomment">/// The number of plural fields this resource has.
         </span><span class="kw">type </span>NumPluralFields: Length;
 
+        <span class="doccomment">/// The unique, sequentially increasing ID for this resource.
+        </span><span class="kw">type </span>Id: Field&lt;Resource = <span class="self">Self</span>, Type = Id&gt;;
+
         <span class="doccomment">/// Boolean predicates on this resource type.
         ///
         /// This is always the same type as [`Predicate`](Type::Predicate), but the alias
@@ -1859,7 +1902,7 @@
     }
 
     <span class="doccomment">/// Metadata about a field of a resource.
-    </span><span class="kw">pub trait </span>Field {
+    </span><span class="kw">pub trait </span>Field: <span class="lifetime">&#39;static </span>{
         <span class="doccomment">/// The type of the field.
         </span><span class="kw">type </span>Type: Type;
 
@@ -1890,10 +1933,15 @@
         </span><span class="kw">fn </span>take_predicate(
             predicate: <span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::ResourcePredicate,
         ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Predicate&gt;;
+
+        <span class="doccomment">/// Is this the unique ID field for its [`Resource`]?
+        </span><span class="kw">fn </span>is_id() -&gt; bool {
+            TypeId::of::&lt;<span class="self">Self</span>&gt;() == TypeId::of::&lt;&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::Id&gt;()
+        }
     }
 
     <span class="doccomment">/// Metadata about a plural field of a resource.
-    </span><span class="kw">pub trait </span>PluralField {
+    </span><span class="kw">pub trait </span>PluralField: <span class="lifetime">&#39;static </span>{
         <span class="doccomment">/// The type of the field.
         </span><span class="kw">type </span>Type: PluralType;
 

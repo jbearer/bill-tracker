@@ -253,6 +253,14 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Compilation of select from high-level GraphQL types into low-level SQL types.
 
 </span><span class="kw">use super</span>::{
@@ -414,12 +422,13 @@
         array,
         sql::db::{mock, SchemaColumn, Type, Value},
     };
-    <span class="kw">use </span>generic_array::typenum::U2;
-    <span class="kw">use </span>gql::Resource;
+    <span class="kw">use </span>generic_array::typenum::U3;
+    <span class="kw">use </span>gql::{Id, Resource};
 
     <span class="doccomment">/// A simple test resource with scalar fields.
     </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Resource)]
     </span><span class="kw">struct </span>TestResource {
+        id: Id,
         field1: i32,
         field2: String,
     }
@@ -428,36 +437,43 @@
     </span><span class="kw">async fn </span>test_resource_predicate() {
         <span class="kw">let </span>resources = [
             TestResource {
+                id: <span class="number">0</span>,
                 field1: <span class="number">0</span>,
                 field2: <span class="string">&quot;foo&quot;</span>.into(),
             },
             TestResource {
+                id: <span class="number">1</span>,
                 field1: <span class="number">1</span>,
                 field2: <span class="string">&quot;bar&quot;</span>.into(),
             },
             TestResource {
+                id: <span class="number">2</span>,
                 field1: <span class="number">1</span>,
                 field2: <span class="string">&quot;baz&quot;</span>.into(),
             },
         ];
 
         <span class="kw">let </span>db = mock::Connection::create();
-        db.create_table_with_rows::&lt;U2&gt;(
+        db.create_table_with_rows::&lt;U3&gt;(
             <span class="string">&quot;test_resources&quot;</span>,
             <span class="macro">array!</span>[SchemaColumn;
+                SchemaColumn::new(<span class="string">&quot;id&quot;</span>, Type::Serial),
                 SchemaColumn::new(<span class="string">&quot;field1&quot;</span>, Type::Int4),
                 SchemaColumn::new(<span class="string">&quot;field2&quot;</span>, Type::Text),
             ],
             [
                 <span class="macro">array!</span>[Value;
+                    Value::from(resources[<span class="number">0</span>].id),
                     Value::from(resources[<span class="number">0</span>].field1),
                     Value::from(resources[<span class="number">0</span>].field2.clone()),
                 ],
                 <span class="macro">array!</span>[Value;
+                    Value::from(resources[<span class="number">1</span>].id),
                     Value::from(resources[<span class="number">1</span>].field1),
                     Value::from(resources[<span class="number">1</span>].field2.clone()),
                 ],
                 <span class="macro">array!</span>[Value;
+                    Value::from(resources[<span class="number">2</span>].id),
                     Value::from(resources[<span class="number">2</span>].field1),
                     Value::from(resources[<span class="number">2</span>].field2.clone()),
                 ],
