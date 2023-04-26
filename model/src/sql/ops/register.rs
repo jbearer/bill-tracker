@@ -63,9 +63,20 @@ impl<'a, 'd, C: Connection, T: gql::Resource> gql::FieldVisitor<T> for ColumnBui
     type Output = (SchemaColumn<'a>, Option<ConstraintKind>);
 
     fn visit<F: gql::Field<Resource = T>>(&mut self) -> Self::Output {
+        let column_name = Cow::Owned(column_name::<F>());
+
+        // The ID field is special.
+        if F::is_id() {
+            return (
+                SchemaColumn::new(column_name, Type::Serial),
+                Some(ConstraintKind::PrimaryKey),
+            );
+        }
+
+        // All other fields are handled based on their type.
         struct Visitor<'a, 'd, C> {
             conn: &'a C,
-            column_name: String,
+            column_name: Cow<'a, str>,
             dependencies: &'d mut Dependencies<'a>,
         }
 
@@ -81,7 +92,7 @@ impl<'a, 'd, C: Connection, T: gql::Resource> gql::FieldVisitor<T> for ColumnBui
 
                 // Add the corresponding ID as a foreign key on this table.
                 (
-                    SchemaColumn::new(Cow::Owned(self.column_name), Type::Int8),
+                    SchemaColumn::new(self.column_name, Type::Int8),
                     Some(ConstraintKind::ForeignKey {
                         table: table_name::<T>(),
                     }),
@@ -94,7 +105,7 @@ impl<'a, 'd, C: Connection, T: gql::Resource> gql::FieldVisitor<T> for ColumnBui
             {
                 // If the field is a scalar, just create a column of the corresponding type.
                 (
-                    SchemaColumn::new(Cow::Owned(self.column_name), lower_scalar_type::<T>()),
+                    SchemaColumn::new(self.column_name, lower_scalar_type::<T>()),
                     None,
                 )
             }
@@ -103,7 +114,7 @@ impl<'a, 'd, C: Connection, T: gql::Resource> gql::FieldVisitor<T> for ColumnBui
         F::Type::describe(Visitor {
             conn: self.conn,
             dependencies: self.dependencies,
-            column_name: column_name::<F>(),
+            column_name,
         })
     }
 }
@@ -228,16 +239,18 @@ impl<'a> Dependencies<'a> {
 mod test {
     use super::*;
     use crate::sql::db::mock;
-    use gql::Resource;
+    use gql::{Id, Resource};
 
     #[derive(Clone, Debug, PartialEq, Eq, Resource)]
     struct Simple {
+        id: Id,
         int_field: i32,
         text_field: String,
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Resource)]
     struct OneToOne {
+        id: Id,
         simple: Simple,
     }
 
@@ -248,6 +261,7 @@ mod test {
         assert_eq!(
             db.schema().await["simples"],
             [
+                SchemaColumn::new("id", Type::Serial),
                 SchemaColumn::new("int_field", Type::Int4),
                 SchemaColumn::new("text_field", Type::Text)
             ]
@@ -264,6 +278,7 @@ mod test {
         assert_eq!(
             schema["simples"],
             [
+                SchemaColumn::new("id", Type::Serial),
                 SchemaColumn::new("int_field", Type::Int4),
                 SchemaColumn::new("text_field", Type::Text)
             ]
@@ -272,7 +287,10 @@ mod test {
         // Check the table with the relation, implemented as a foreign key.
         assert_eq!(
             schema["one_to_ones"],
-            [SchemaColumn::new("simple", Type::Int8),]
+            [
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("simple", Type::Int8),
+            ]
         );
     }
 }

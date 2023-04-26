@@ -31,6 +31,7 @@ use super::async_graphql as gql;
 use derive_more::Display;
 use is_type::Is;
 use sealed::sealed;
+use std::any::TypeId;
 use std::error::Error;
 use std::fmt::Display;
 
@@ -424,7 +425,15 @@ pub mod scalar {
     }
 
     macro_rules! int_scalars {
-        ($(($t:ty, $visit:ident, $mod:ident)),+ $(,)?) => {
+        ($((
+            $t:ty,
+            $visit:ident,
+            $mod:ident,
+            $pred_name:expr,
+            $cmp_name:expr,
+            $quant_name:expr,
+            $plural_pred_name:expr
+        )),+ $(,)?) => {
             $(
                 pub mod $mod {
                     use super::*;
@@ -441,6 +450,7 @@ pub mod scalar {
                         Hash,
                         gql::OneofObject,
                     )]
+                    #[graphql(name = $pred_name)]
                     pub enum Predicate {
                         /// Satisfied if the comparison is true.
                         Cmp(Cmp),
@@ -487,6 +497,7 @@ pub mod scalar {
                         Hash,
                         gql::InputObject,
                     )]
+                    #[graphql(name = $cmp_name)]
                     pub struct Cmp {
                         /// The type of comparison.
                         op: IntCmpOp,
@@ -522,6 +533,7 @@ pub mod scalar {
                         Hash,
                         gql::InputObject,
                     )]
+                    #[graphql(name = $quant_name)]
                     pub struct QuantifiedPredicate {
                         /// The minimum or maximum number of items which must match.
                         quantity: usize,
@@ -541,6 +553,7 @@ pub mod scalar {
                         Hash,
                         gql::OneofObject,
                     )]
+                    #[graphql(name = $plural_pred_name)]
                     pub enum PluralPredicate {
                         /// Matches if at least some number of items in the collection match a
                         /// predicate.
@@ -598,16 +611,19 @@ pub mod scalar {
     }
 
     int_scalars! {
-        (i32, visit_i32, i32_scalar),
-        (i64, visit_i64, i64_scalar),
-        (u32, visit_u32, u32_scalar),
-        (u64, visit_u64, u64_scalar),
+        (i32, visit_i32, i32_scalar, "i32Predicate", "i32Cmp", "Quantifiedi32Predicate", "i32sPredicate"),
+        (i64, visit_i64, i64_scalar, "i64Predicate", "i64Cmp", "Quantifiedi64Predicate", "i64sPredicate"),
+        (u32, visit_u32, u32_scalar, "u32Predicate", "u32Cmp", "Quantifiedu32Predicate", "u32sPredicate"),
+        (u64, visit_u64, u64_scalar, "u64Predicate", "u64Cmp", "Quantifiedu64Predicate", "u64sPredicate"),
     }
 
     pub use i32_scalar::Trait as I32Scalar;
     pub use i64_scalar::Trait as I64Scalar;
     pub use u32_scalar::Trait as U32Scalar;
     pub use u64_scalar::Trait as U64Scalar;
+
+    /// A type for unique, sequentially increasing IDs.
+    pub type Id = i32;
 
     /// A string scalar.
     ///
@@ -767,6 +783,9 @@ pub mod resource {
         /// The number of plural fields this resource has.
         type NumPluralFields: Length;
 
+        /// The unique, sequentially increasing ID for this resource.
+        type Id: Field<Resource = Self, Type = Id>;
+
         /// Boolean predicates on this resource type.
         ///
         /// This is always the same type as [`Predicate`](Type::Predicate), but the alias
@@ -880,7 +899,7 @@ pub mod resource {
     }
 
     /// Metadata about a field of a resource.
-    pub trait Field {
+    pub trait Field: 'static {
         /// The type of the field.
         type Type: Type;
 
@@ -911,10 +930,15 @@ pub mod resource {
         fn take_predicate(
             predicate: &mut <Self::Resource as Resource>::ResourcePredicate,
         ) -> Option<<Self::Type as Type>::Predicate>;
+
+        /// Is this the unique ID field for its [`Resource`]?
+        fn is_id() -> bool {
+            TypeId::of::<Self>() == TypeId::of::<<Self::Resource as Resource>::Id>()
+        }
     }
 
     /// Metadata about a plural field of a resource.
-    pub trait PluralField {
+    pub trait PluralField: 'static {
         /// The type of the field.
         type Type: PluralType;
 

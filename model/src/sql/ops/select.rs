@@ -159,12 +159,13 @@ mod test {
         array,
         sql::db::{mock, SchemaColumn, Type, Value},
     };
-    use generic_array::typenum::U2;
-    use gql::Resource;
+    use generic_array::typenum::U3;
+    use gql::{Id, Resource};
 
     /// A simple test resource with scalar fields.
     #[derive(Clone, Debug, PartialEq, Eq, Resource)]
     struct TestResource {
+        id: Id,
         field1: i32,
         field2: String,
     }
@@ -173,36 +174,43 @@ mod test {
     async fn test_resource_predicate() {
         let resources = [
             TestResource {
+                id: 0,
                 field1: 0,
                 field2: "foo".into(),
             },
             TestResource {
+                id: 1,
                 field1: 1,
                 field2: "bar".into(),
             },
             TestResource {
+                id: 2,
                 field1: 1,
                 field2: "baz".into(),
             },
         ];
 
         let db = mock::Connection::create();
-        db.create_table_with_rows::<U2>(
+        db.create_table_with_rows::<U3>(
             "test_resources",
             array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
                 SchemaColumn::new("field1", Type::Int4),
                 SchemaColumn::new("field2", Type::Text),
             ],
             [
                 array![Value;
+                    Value::from(resources[0].id),
                     Value::from(resources[0].field1),
                     Value::from(resources[0].field2.clone()),
                 ],
                 array![Value;
+                    Value::from(resources[1].id),
                     Value::from(resources[1].field1),
                     Value::from(resources[1].field2.clone()),
                 ],
                 array![Value;
+                    Value::from(resources[2].id),
                     Value::from(resources[2].field1),
                     Value::from(resources[2].field2.clone()),
                 ],

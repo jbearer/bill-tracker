@@ -52,6 +52,7 @@ mod helpers;
 /// /// A new resource.
 /// #[derive(Clone, Resource)]
 /// struct MyResource {
+///     id: Id,
 ///     /// A singular field.
 ///     #[resource(primary)]
 ///     singular: u64,
@@ -74,6 +75,7 @@ mod helpers;
 /// # use model::graphql::prelude::*;
 /// # #[derive(Clone, Resource)]
 /// # struct MyResource {
+/// #     id: Id,
 /// #     #[resource(primary)]
 /// #     singular: u64,
 /// #     plural: Many<D, u64>,
@@ -93,6 +95,7 @@ mod helpers;
 ///         #[graphql(name = "where")] filter: <MyResource as Type>::Predicate,
 ///     ) -> MyResource {
 ///         MyResource {
+///             id: 0,
 ///             singular: 0,
 ///             plural: Many::<D, u64>::empty(EmptyFields),
 ///             extra: WeirdType,
@@ -152,6 +155,7 @@ mod helpers;
 ///
 /// | Attribute     | Description                                             | Arg    | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
+/// | id            | Use this field as the ID for this resource. Each resource must have exactly one ID field of type `Id`. This attribute can be omitted if the field's type is explicitly `Id` (but the macro is required if, e.g., the type of the field is a type alias). | n/a | yes |
 /// | plural        | Mark this as a plural field. By default, any field with type `Many<...>` is considered plural. This attribute can be used to pluralize a field with a different type or type alias. | n/a | no |
 /// | plural        | Explicitly set whether this field is plural or not by providing a `bool` literal. This can be used to override implicitly plural types like `Many`. | bool | no |
 /// | primary       | Mark this field as primary. The primary field may be used in place of the whole object in GraphQL predicates. A struct can have at most one primary field. | n/a | no |
@@ -189,6 +193,7 @@ pub fn graphql_resource(input: TokenStream) -> TokenStream {
 ///
 /// #[derive(Clone, Resource)]
 /// struct MyResource {
+///     id: Id,
 ///     #[resource(primary)]
 ///     field: u64,
 /// }

@@ -314,7 +314,7 @@ impl<'a, N: Length> super::CreateTable for CreateTable<'a, N> {
     }
 
     async fn execute(self) -> Result<(), Self::Error> {
-        let table = escape_ident(self.table);
+        let table = escape_ident(&self.table);
         let columns = self
             .columns
             .into_iter()
@@ -333,7 +333,7 @@ impl<'a, N: Length> super::CreateTable for CreateTable<'a, N> {
         let constraints = self
             .constraints
             .into_iter()
-            .map(|(kind, cols)| format_constraint(kind, &cols))
+            .map(|(kind, cols)| format_constraint(&self.table, kind, &cols))
             .join(",");
         self.conn
             .query(
@@ -387,11 +387,11 @@ impl<'a> super::AlterTable for AlterTable<'a> {
             return Ok(());
         }
 
-        let table = escape_ident(self.table);
+        let table = escape_ident(&self.table);
         let constraints = self
             .constraints
             .into_iter()
-            .map(|(kind, cols)| format!("ADD {}", format_constraint(kind, &cols)))
+            .map(|(kind, cols)| format!("ADD {}", format_constraint(&self.table, kind, &cols)))
             .join("");
         self.conn
             .query(format!("ALTER TABLE {table} {constraints}").as_str(), [])
@@ -456,26 +456,27 @@ impl<'a> FromSql<'a> for Value {
     accepts!(INT4, INT8, TEXT);
 }
 
-fn format_constraint(kind: ConstraintKind, cols: &[String]) -> String {
+fn format_constraint(table: impl AsRef<str>, kind: ConstraintKind, cols: &[String]) -> String {
+    let table = table.as_ref();
     let cols_ident = cols.iter().join("-");
     let cols = cols.iter().map(escape_ident).join(",");
     match kind {
         ConstraintKind::PrimaryKey => {
             format!(
                 "CONSTRAINT {} PRIMARY KEY ({cols})",
-                escape_ident(format!("pk-{cols_ident}"))
+                escape_ident(format!("{table}-pk-{cols_ident}"))
             )
         }
         ConstraintKind::Unique => {
             format!(
                 "CONSTRAINT {} UNIQUE ({cols})",
-                escape_ident(format!("uq-{cols_ident}"))
+                escape_ident(format!("{table}-uq-{cols_ident}"))
             )
         }
         ConstraintKind::ForeignKey { table } => {
             format!(
                 "CONSTRAINT {} FOREIGN KEY ({cols}) REFERENCES {}",
-                escape_ident(format!("fk-{table}-{cols_ident}")),
+                escape_ident(format!("{table}-fk-{table}-{cols_ident}")),
                 escape_ident(table)
             )
         }
@@ -493,7 +494,7 @@ mod test {
     use crate::{
         graphql::{
             backend::DataSource,
-            type_system::{IntCmpOp, Resource, Type, Value},
+            type_system::{Id, IntCmpOp, Resource, Type, Value},
         },
         init_logging,
         sql::data_source::SqlDataSource,
@@ -592,11 +593,13 @@ mod test {
 
     #[derive(Clone, Debug, PartialEq, Eq, Resource)]
     struct Simple {
+        id: Id,
         field: i32,
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Resource)]
     struct Reference {
+        id: Id,
         simple: Simple,
     }
 
@@ -606,7 +609,7 @@ mod test {
         let db = postgres_test!();
         let mut conn = SqlDataSource::from(db.connect().await);
 
-        let simples = [Simple { field: 0 }, Simple { field: 1 }];
+        let simples = [Simple { id: 0, field: 0 }, Simple { id: 1, field: 1 }];
 
         conn.register::<Reference>().await.unwrap();
         conn.insert(simples.clone()).await.unwrap();

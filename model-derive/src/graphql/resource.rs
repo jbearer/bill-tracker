@@ -48,6 +48,13 @@ fn generate_struct(
         _ => quote!(#vis),
     })
     .unwrap();
+    // Field metas are generated in a nested module, so they need to be exported one additional
+    // level to be visible in the parent module.
+    let field_export: Visibility = syn::parse2(match &vis {
+        Visibility::Inherited => quote!(pub(in super::super)),
+        _ => quote!(#vis),
+    })
+    .unwrap();
 
     // Get fields, filtering out skipped ones.
     let Fields::Named(fields) = s.fields else {
@@ -92,6 +99,18 @@ fn generate_struct(
     );
     let plural_pred_doc = format!("A predicate used to filter collections of {}.", plural_name);
 
+    // Get the ID field.
+    let id_field = fields
+        .iter()
+        .find(|f| field_is_id(&p, f))
+        .expect("Resource must have ID field");
+    let id_name = field_meta_name(
+        id_field
+            .ident
+            .as_ref()
+            .expect("Resource fields must be named"),
+    );
+
     // If this struct has a _primary field_, it gets a couple of extra predicate options. In
     // addition to filtering by applying a predicate to its fields, you can implicitly filter based
     // on the primary field, which leads to shorter, more readable queries. In particular, you can
@@ -118,7 +137,7 @@ fn generate_struct(
     // Generate marker types to hold metadta for each field.
     let field_metas = fields
         .iter()
-        .map(|f| generate_field_meta(&export, &name, f));
+        .map(|f| generate_field_meta(&field_export, &name, f));
     let field_meta_impls = fields
         .iter()
         .map(|f| generate_field_meta_impl(&p, &name, &pred_name, f, primary_field));
@@ -289,6 +308,8 @@ fn generate_struct(
             impl Resource for #name {
                 type NumFields = typenum::#num_singular_fields;
                 type NumPluralFields = typenum::#num_plural_fields;
+
+                type Id = fields::#id_name;
 
                 type ResourcePredicate = #pred_name;
 
@@ -526,6 +547,18 @@ fn generate_resolver(p: &AttrParser, f: &Field) -> TokenStream {
             }
         }
     }
+}
+
+fn field_is_id(p: &AttrParser, f: &Field) -> bool {
+    // Check if the field is explicitly an ID.
+    if p.has_bool(&f.attrs, "id") {
+        return true;
+    }
+
+    // Check if the field has type `Id`.
+    let Type::Path(path) = &f.ty else { return false; };
+    let Some(type_name) = path.path.segments.last() else { return false; };
+    type_name.ident == "Id"
 }
 
 fn field_is_plural(p: &AttrParser, f: &Field) -> bool {

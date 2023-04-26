@@ -5,6 +5,7 @@ use super::prelude::*;
 /// A US state.
 #[derive(Clone, Debug, Resource)]
 pub struct State {
+    id: Id,
     /// The 2-letter abbreviation for this state as recognized by the US postal service.
     #[resource(primary)]
     abbreviation: String,
@@ -21,15 +22,19 @@ pub struct State {
 /// A subdivision of a [`State`] with its own representatives in the state legislature.
 #[derive(Clone, Debug, Resource)]
 pub struct District {
+    id: Id,
     /// The state containing this district.
     state: State,
     /// The name of the district.
-    name: String,
-    /// The district ID.
     ///
     /// This is usually a number (like "37" in CA-37), but not always -- some states have an
     /// at-large district with ID "AL".
-    id: String,
+    name: String,
+    /// The locale of the district.
+    ///
+    /// This is usually the name of the most populous city or county in the district. It is less
+    /// precise but easier to understand than the `name`.
+    locale: String,
     /// Representatives of this district in the state legislature.
     representatives: Many<D, Legislator>,
 }
@@ -37,6 +42,7 @@ pub struct District {
 /// A piece of legislation.
 #[derive(Clone, Debug, Resource)]
 pub struct Bill {
+    id: Id,
     /// The name of the bill.
     ///
     /// This is frequently a combination of a chamber identifier (like "SB" for senate bill) and a
@@ -59,6 +65,7 @@ pub struct Bill {
 /// A state lawmaker.
 #[derive(Clone, Debug, Resource)]
 pub struct Legislator {
+    id: Id,
     /// The legislator's legal name.
     name: String,
     /// The state in which the legislator serves.
@@ -75,6 +82,7 @@ pub struct Legislator {
 #[derive(Clone, Debug, Resource)]
 #[resource(plural(Parties))]
 pub struct Party {
+    id: Id,
     /// A shortened form of the party's name.
     ///
     /// This is frequently a single letter as in "R" (for Republican) or "D" (for Democrat). For
@@ -90,6 +98,7 @@ pub struct Party {
 /// A political issue.
 #[derive(Clone, Debug, Resource)]
 pub struct Issue {
+    id: Id,
     /// A short name for the issue.
     name: String,
     /// Bills pertaining to this issue.
