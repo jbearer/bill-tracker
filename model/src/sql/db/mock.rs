@@ -123,6 +123,7 @@ impl Connection {
 impl super::Connection for Connection {
     type Error = Error;
     type CreateTable<'a, N: Length> = CreateTable<'a, N>;
+    type AlterTable<'a> = AlterTable;
     type Select<'a> = Select<'a>;
     type Insert<'a, N: Length> = Insert<'a, N>;
 
@@ -136,6 +137,10 @@ impl super::Connection for Connection {
             table: table.into(),
             columns,
         }
+    }
+
+    fn alter_table<'a>(&'a self, _table: impl Into<Cow<'a, str>> + Send) -> Self::AlterTable<'a> {
+        AlterTable
     }
 
     fn select<'a>(
@@ -284,6 +289,27 @@ impl<'a, N: Length> super::CreateTable for CreateTable<'a, N> {
         self.db
             .create_table(self.table, self.columns.map(|col| col.into_static()))
             .await
+    }
+}
+
+/// An alter table statement for an in-memory database.
+pub struct AlterTable;
+
+#[async_trait]
+impl super::AlterTable for AlterTable {
+    type Error = Error;
+
+    fn add_constraint<I>(self, _kind: ConstraintKind, _columns: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        // The mock database doesn't enforce constraints.
+        self
+    }
+
+    async fn execute(self) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 

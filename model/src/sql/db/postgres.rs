@@ -89,9 +89,14 @@ impl Connection {
 
 impl super::Connection for Connection {
     type Error = Error;
+    type AlterTable<'a> = AlterTable<'a>;
     type CreateTable<'a, N: Length> = CreateTable<'a, N>;
     type Select<'a> = Select<'a>;
     type Insert<'a, N: Length> = Insert<'a, N>;
+
+    fn alter_table<'a>(&'a self, table: impl Into<Cow<'a, str>> + Send) -> Self::AlterTable<'a> {
+        AlterTable::new(self, table.into())
+    }
 
     fn create_table<'a, N: Length>(
         &'a self,
@@ -154,9 +159,11 @@ impl<'a> super::Select for Select<'a> {
         match clause {
             Clause::Where { column, op, param } => {
                 query.params.push(param);
-                query
-                    .conditions
-                    .push(format!("{column} {op} ${}", query.params.len()));
+                query.conditions.push(format!(
+                    "{} {op} ${}",
+                    escape_ident(column),
+                    query.params.len()
+                ));
             }
         }
         Self(Ok(query))
@@ -172,8 +179,15 @@ impl<'a> super::Select for Select<'a> {
         // return the future without returning a reference to the local `query`.
         async move {
             // Format the `SELECT` part of the query.
-            let columns = query.select.iter().map(|col| col.to_string()).join(", ");
-            let table = query.table;
+            let columns = query
+                .select
+                .iter()
+                .map(|col| match col {
+                    SelectColumn::Col(name) => escape_ident(name),
+                    SelectColumn::All => "*".to_string(),
+                })
+                .join(", ");
+            let table = escape_ident(query.table);
 
             // Format the `WHERE` clause if there is one.
             let clauses = if query.conditions.is_empty() {
@@ -235,7 +249,7 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
     }
 
     async fn execute(self) -> Result<(), Error> {
-        let columns = self.columns.iter().join(",");
+        let columns = self.columns.iter().map(escape_ident).join(",");
         let rows = (0..self.num_rows)
             .map(|i| {
                 let values = (0..N::USIZE)
@@ -252,7 +266,13 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
             .join(",");
         self.conn
             .query(
-                format!("INSERT INTO {} ({}) VALUES {}", self.table, columns, rows).as_str(),
+                format!(
+                    "INSERT INTO {} ({}) VALUES {}",
+                    escape_ident(self.table),
+                    columns,
+                    rows
+                )
+                .as_str(),
                 &self.params,
             )
             .await?;
@@ -294,7 +314,7 @@ impl<'a, N: Length> super::CreateTable for CreateTable<'a, N> {
     }
 
     async fn execute(self) -> Result<(), Self::Error> {
-        let table = self.table;
+        let table = escape_ident(self.table);
         let columns = self
             .columns
             .into_iter()
@@ -313,26 +333,68 @@ impl<'a, N: Length> super::CreateTable for CreateTable<'a, N> {
         let constraints = self
             .constraints
             .into_iter()
-            .map(|(kind, cols)| {
-                let cols = cols.into_iter().join(",");
-                match kind {
-                    ConstraintKind::PrimaryKey => format!("CONSTRAINT PRIMARY KEY ({cols})"),
-                    ConstraintKind::Unique => format!("CONSTRAINT UNIQUE ({cols})"),
-                    ConstraintKind::ForeignKey { table } => {
-                        format!("CONSTRAINT FOREIGN KEY ({cols}) REFERENCES {table}")
-                    }
-                }
-            })
+            .map(|(kind, cols)| format_constraint(kind, &cols))
             .join(",");
         self.conn
             .query(
                 format!(
-                    "CREATE TABLE IF NOT EXISTS {table} ({columns}{} {constraints})",
+                    "CREATE TABLE IF NOT EXISTS {table} ({columns}{}{constraints})",
                     if constraints.is_empty() { "" } else { "," }
                 )
                 .as_str(),
                 [],
             )
+            .await?;
+        Ok(())
+    }
+}
+
+/// An `ALTER TABLE` statement for a PostgreSQL database.
+pub struct AlterTable<'a> {
+    conn: &'a Connection,
+    table: Cow<'a, str>,
+    constraints: Vec<(ConstraintKind, Vec<String>)>,
+}
+
+impl<'a> AlterTable<'a> {
+    fn new(conn: &'a Connection, table: Cow<'a, str>) -> Self {
+        Self {
+            conn,
+            table,
+            constraints: vec![],
+        }
+    }
+}
+
+#[async_trait]
+impl<'a> super::AlterTable for AlterTable<'a> {
+    type Error = Error;
+
+    fn add_constraint<I>(mut self, kind: ConstraintKind, columns: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        self.constraints
+            .push((kind, columns.into_iter().map(|col| col.into()).collect()));
+        self
+    }
+
+    async fn execute(self) -> Result<(), Self::Error> {
+        if self.constraints.is_empty() {
+            // An `ALTER TABLE` statement with no actions is invalid SQL, but if it had an
+            // interpretation, the only reasonable one would be to do nothing.
+            return Ok(());
+        }
+
+        let table = escape_ident(self.table);
+        let constraints = self
+            .constraints
+            .into_iter()
+            .map(|(kind, cols)| format!("ADD {}", format_constraint(kind, &cols)))
+            .join("");
+        self.conn
+            .query(format!("ALTER TABLE {table} {constraints}").as_str(), [])
             .await?;
         Ok(())
     }
@@ -392,6 +454,37 @@ impl<'a> FromSql<'a> for Value {
     }
 
     accepts!(INT4, INT8, TEXT);
+}
+
+fn format_constraint(kind: ConstraintKind, cols: &[String]) -> String {
+    let cols_ident = cols.iter().join("-");
+    let cols = cols.iter().map(escape_ident).join(",");
+    match kind {
+        ConstraintKind::PrimaryKey => {
+            format!(
+                "CONSTRAINT {} PRIMARY KEY ({cols})",
+                escape_ident(format!("pk-{cols_ident}"))
+            )
+        }
+        ConstraintKind::Unique => {
+            format!(
+                "CONSTRAINT {} UNIQUE ({cols})",
+                escape_ident(format!("uq-{cols_ident}"))
+            )
+        }
+        ConstraintKind::ForeignKey { table } => {
+            format!(
+                "CONSTRAINT {} FOREIGN KEY ({cols}) REFERENCES {}",
+                escape_ident(format!("fk-{table}-{cols_ident}")),
+                escape_ident(table)
+            )
+        }
+    }
+}
+
+/// Escape an identifier (table name, column name, etc.) for inclusion in a PostgreSQL query.
+fn escape_ident(s: impl AsRef<str>) -> String {
+    format!("\"{}\"", s.as_ref().replace('"', "\"\""))
 }
 
 #[cfg(test)]
@@ -502,16 +595,21 @@ mod test {
         field: i32,
     }
 
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Reference {
+        simple: Simple,
+    }
+
     #[async_std::test]
     async fn test_postgres_data_source() {
         init_logging();
         let db = postgres_test!();
         let mut conn = SqlDataSource::from(db.connect().await);
 
-        let items = [Simple { field: 0 }, Simple { field: 1 }];
+        let simples = [Simple { field: 0 }, Simple { field: 1 }];
 
-        conn.register::<Simple>().await.unwrap();
-        conn.insert(items.clone()).await.unwrap();
+        conn.register::<Reference>().await.unwrap();
+        conn.insert(simples.clone()).await.unwrap();
 
         // Select all elements.
         let results = conn.query::<Simple>(None).await.unwrap();
@@ -522,7 +620,7 @@ mod test {
             .into_iter()
             .map(|edge| edge.node)
             .collect::<Vec<_>>();
-        assert_eq!(page, items);
+        assert_eq!(page, simples);
 
         // Select with a filter.
         let results = conn
@@ -540,6 +638,6 @@ mod test {
             .into_iter()
             .map(|edge| edge.node)
             .collect::<Vec<_>>();
-        assert_eq!(page, &items[1..]);
+        assert_eq!(page, &simples[1..]);
     }
 }

@@ -16,6 +16,7 @@
 //! to a [type system](graphql::type_system) for relational ontologies. The SQL implementation is
 //! thus completely agnostic to the domain-specific GraphQL schema.
 
+use derivative::Derivative;
 use derive_more::{Deref, DerefMut, From, Into};
 use generic_array::{
     typenum::{UInt, UTerm, Unsigned, B0, B1},
@@ -74,7 +75,8 @@ impl<N: Length> Length for UInt<N, B1> {
 }
 
 /// An array of type `T` with constant length `N`.
-#[derive(Clone, Default, Deref, DerefMut, From, Into, PartialEq, Eq)]
+#[derive(Derivative, Deref, DerefMut, From, Into, PartialEq, Eq)]
+#[derivative(Clone(bound = "T: Clone"), Default(bound = "T: Default"))]
 pub struct Array<T, N: Length>(GenericArray<T, N::Of<T>>);
 
 impl<T, N: Length> IntoIterator for Array<T, N> {
@@ -181,6 +183,22 @@ impl<T, N: Length> Array<T, N> {
             }
         }
     }
+
+    /// Join two arrays of the same length into a single array of pairs of elements from each.
+    pub fn zip<U>(self, other: Array<U, N>) -> Array<(T, U), N> {
+        Array::from_exact_iter(self.into_iter().zip(other)).unwrap()
+    }
+}
+
+impl<T, U, N: Length> Array<(T, U), N> {
+    /// Split an array of pairs into a pair of arrays.
+    pub fn unzip(self) -> (Array<T, N>, Array<U, N>) {
+        let (l, r): (Vec<_>, Vec<_>) = self.into_iter().unzip();
+        (
+            Array::from_exact_iter(l).unwrap(),
+            Array::from_exact_iter(r).unwrap(),
+        )
+    }
 }
 
 impl<T: Debug, N: Length> Debug for Array<T, N> {
@@ -225,6 +243,22 @@ mod test {
         assert_eq!(arr, array![usize; 0]);
     }
 
+    fn array<T: Arbitrary>() -> impl Strategy<Value = Array<T, U10>> {
+        [
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+            any::<T>(),
+        ]
+        .prop_map(Array::from)
+    }
+
     fn permutation() -> impl Strategy<Value = Array<usize, U10>> {
         any::<Vec<(usize, usize)>>().prop_map(|swaps| {
             let mut perm = array![usize; 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -246,6 +280,11 @@ mod test {
             let mut array = array![usize; 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             array.permute(&perm);
             prop_assert_eq!(array, perm);
+        }
+
+        #[test]
+        fn test_zip_unzip_inverse(a in array::<usize>(), b in array::<String>()) {
+            prop_assert_eq!(a.clone().zip(b.clone()).unzip(), (a, b));
         }
     }
 }

@@ -89,6 +89,11 @@ pub trait Connection {
     where
         Self: 'a;
 
+    /// An `ALTER TABLE` statement which can be executed against the database.
+    type AlterTable<'a>: AlterTable<Error = Self::Error>
+    where
+        Self: 'a;
+
     /// A `SELECT` query which can be executed against the database.
     type Select<'a>: Select<Error = Self::Error>
     where
@@ -99,21 +104,29 @@ pub trait Connection {
     where
         Self: 'a;
 
-    /// Execute a `CREATE TABLE` statement.
+    /// Start a `CREATE TABLE` statement.
     ///
-    /// This will execute a statement of the form `CREATE TABLE IF NOT EXISTS table (columns)`.
+    /// `table` and `columns` describe the name and the basic structure of the table. More
+    /// fine-grained control over the table (such as adding constraints) is available via the
+    /// methods on the [`CreateTable`] object.
     fn create_table<'a, N: Length>(
         &'a self,
         table: impl Into<Cow<'a, str>> + Send,
         columns: Array<SchemaColumn<'a>, N>,
     ) -> Self::CreateTable<'a, N>;
 
+    /// Start an `ALTER TABLE` statement.
+    ///
+    /// The statement will affect `table`. Actions to perform on the table can be specified using
+    /// the methods on the [`AlterTable`] object before executing the statement.
+    fn alter_table<'a>(&'a self, table: impl Into<Cow<'a, str>> + Send) -> Self::AlterTable<'a>;
+
     /// Start a `SELECT` query.
     ///
     /// `columns` indicates the columns to include in the query results. The resulting [`Select`]
     /// represents a statement of the form `SELECT columns FROM table`. The query can be refined,
-    /// for example by adding a `WHERE` clause, using the approriate methods on the [`Select`] object
-    /// before running it.
+    /// for example by adding a `WHERE` clause, using the approriate methods on the [`Select`]
+    /// object before running it.
     fn select<'a>(
         &'a self,
         columns: &'a [SelectColumn<'a>],
@@ -202,6 +215,7 @@ pub enum Clause {
 }
 
 /// A constraint on a set of columns in a table.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ConstraintKind {
     PrimaryKey,
     Unique,
@@ -224,7 +238,82 @@ pub trait CreateTable: Send {
     ///
     /// This will execute a statement of the form
     /// `CREATE TABLE IF NOT EXISTS table (columns constraints)`.
+    ///
+    /// # Errors
+    ///
+    /// This method will fail if any of the specified constraints were invalid.s
     async fn execute(self) -> Result<(), Self::Error>;
+}
+
+/// An extension trait for [`CreateTable`] that provides some higher-level functions.
+pub trait CreateTableExt: CreateTable {
+    /// Add a list of constraints to the table.
+    fn constraints<I, C>(self, constraints: I) -> Self
+    where
+        I: IntoIterator<Item = (ConstraintKind, C)>,
+        C: IntoIterator,
+        C::Item: Into<String>;
+}
+
+impl<T: CreateTable> CreateTableExt for T {
+    fn constraints<I, C>(mut self, constraints: I) -> Self
+    where
+        I: IntoIterator<Item = (ConstraintKind, C)>,
+        C: IntoIterator,
+        C::Item: Into<String>,
+    {
+        for (kind, columns) in constraints {
+            self = self.constraint(kind, columns);
+        }
+        self
+    }
+}
+
+/// An `ALTER TABLE` statement which can be executed against the database.
+#[async_trait]
+pub trait AlterTable: Send {
+    /// Errors returned by this statement.
+    type Error: Error;
+
+    /// Add a constraint to the table.
+    fn add_constraint<I>(self, kind: ConstraintKind, columns: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>;
+
+    /// Do the table alteration.
+    ///
+    /// This will execute a statement of the form `ALTER TABLE table actions...`.
+    ///
+    /// # Errors
+    ///
+    /// This method will fail if the table to alter does not exist or if any of the specified
+    /// actions were invalid.
+    async fn execute(self) -> Result<(), Self::Error>;
+}
+
+/// An extension trait for [`AlterTable`] that provides some higher-level functions.
+pub trait AlterTableExt: AlterTable {
+    /// Add a list of constraints to the table.
+    fn add_constraints<I, C>(self, constraints: I) -> Self
+    where
+        I: IntoIterator<Item = (ConstraintKind, C)>,
+        C: IntoIterator,
+        C::Item: Into<String>;
+}
+
+impl<T: AlterTable> AlterTableExt for T {
+    fn add_constraints<I, C>(mut self, constraints: I) -> Self
+    where
+        I: IntoIterator<Item = (ConstraintKind, C)>,
+        C: IntoIterator,
+        C::Item: Into<String>,
+    {
+        for (kind, columns) in constraints {
+            self = self.add_constraint(kind, columns);
+        }
+        self
+    }
 }
 
 /// A `SELECT` query which can be executed against the database.
