@@ -80,10 +80,14 @@ impl<'a> SchemaColumn<'a> {
 }
 
 /// A connection to the database.
-#[async_trait]
 pub trait Connection {
     /// Errors returned from queries.
     type Error: Error;
+
+    /// A `CREATE TABLE` statement which can be executed against the database.
+    type CreateTable<'a, N: Length>: CreateTable<Error = Self::Error>
+    where
+        Self: 'a;
 
     /// A `SELECT` query which can be executed against the database.
     type Select<'a>: Select<Error = Self::Error>
@@ -98,11 +102,11 @@ pub trait Connection {
     /// Execute a `CREATE TABLE` statement.
     ///
     /// This will execute a statement of the form `CREATE TABLE IF NOT EXISTS table (columns)`.
-    async fn create_table<N: Length>(
-        &self,
-        table: impl Into<Cow<'_, str>> + Send,
-        columns: Array<SchemaColumn<'_>, N>,
-    ) -> Result<(), Self::Error>;
+    fn create_table<'a, N: Length>(
+        &'a self,
+        table: impl Into<Cow<'a, str>> + Send,
+        columns: Array<SchemaColumn<'a>, N>,
+    ) -> Self::CreateTable<'a, N>;
 
     /// Start a `SELECT` query.
     ///
@@ -143,6 +147,8 @@ pub enum Type {
     UInt4,
     #[display(fmt = "uint8")]
     UInt8,
+    #[display(fmt = "serial")]
+    Serial,
 }
 
 /// A primitive value supported by a SQL database.
@@ -158,6 +164,9 @@ pub enum Value {
     UInt4(u32),
     /// An 8-byte unsigned integer.
     UInt8(u64),
+    /// An auto-incrementing integer.
+    #[from(ignore)]
+    Serial(u32),
 }
 
 impl Value {
@@ -168,6 +177,7 @@ impl Value {
             Self::Int8(_) => Type::Int8,
             Self::UInt4(_) => Type::UInt4,
             Self::UInt8(_) => Type::UInt8,
+            Self::Serial(_) => Type::Serial,
         }
     }
 }
@@ -189,6 +199,32 @@ pub enum Clause {
         /// Parameter to `op`.
         param: Value,
     },
+}
+
+/// A constraint on a set of columns in a table.
+pub enum ConstraintKind {
+    PrimaryKey,
+    Unique,
+    ForeignKey { table: String },
+}
+
+/// A `CREATE TABLE` statement which can be executed against the database.
+#[async_trait]
+pub trait CreateTable: Send {
+    /// Errors returned by this statement.
+    type Error: Error;
+
+    /// Add a constraint to the table.
+    fn constraint<I>(self, kind: ConstraintKind, columns: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>;
+
+    /// Create the table.
+    ///
+    /// This will execute a statement of the form
+    /// `CREATE TABLE IF NOT EXISTS table (columns constraints)`.
+    async fn execute(self) -> Result<(), Self::Error>;
 }
 
 /// A `SELECT` query which can be executed against the database.

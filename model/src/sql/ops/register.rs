@@ -3,7 +3,7 @@
 use super::{column_name, lower_scalar_type, table_name, Error};
 use crate::{
     graphql::type_system::{self as gql, Type as _},
-    sql::db::{Connection, SchemaColumn, Type},
+    sql::db::{Connection, CreateTable, SchemaColumn, Type},
 };
 use futures::future::{try_join_all, BoxFuture, FutureExt, TryFutureExt};
 use std::borrow::Cow;
@@ -45,6 +45,7 @@ fn register_resource<'a, C: Connection, T: gql::Resource>(
     // Create a future to register this table.
     let fut = conn
         .create_table(Cow::Owned(table.clone()), fields)
+        .execute()
         .map_err(Error::sql)
         .boxed();
     dependencies.insert(table, Some(fut));

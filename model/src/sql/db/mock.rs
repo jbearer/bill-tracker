@@ -4,7 +4,7 @@
 //! isolation from an actual database.
 #![cfg(any(test, feature = "mocks"))]
 
-use super::{Clause, SchemaColumn, SelectColumn, Value};
+use super::{Clause, ConstraintKind, SchemaColumn, SelectColumn, Value};
 use crate::{Array, Length};
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
@@ -120,19 +120,22 @@ impl Connection {
     }
 }
 
-#[async_trait]
 impl super::Connection for Connection {
     type Error = Error;
+    type CreateTable<'a, N: Length> = CreateTable<'a, N>;
     type Select<'a> = Select<'a>;
     type Insert<'a, N: Length> = Insert<'a, N>;
 
-    async fn create_table<N: Length>(
-        &self,
-        table: impl Into<Cow<'_, str>> + Send,
-        columns: Array<SchemaColumn<'_>, N>,
-    ) -> Result<(), Self::Error> {
-        self.create_table(table.into(), columns.map(|col| col.into_static()))
-            .await
+    fn create_table<'a, N: Length>(
+        &'a self,
+        table: impl Into<Cow<'a, str>> + Send,
+        columns: Array<SchemaColumn<'a>, N>,
+    ) -> Self::CreateTable<'a, N> {
+        CreateTable {
+            db: self,
+            table: table.into(),
+            columns,
+        }
     }
 
     fn select<'a>(
@@ -254,6 +257,33 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
 
         table.append(self.rows);
         Ok(())
+    }
+}
+
+/// A create table statement for an in-memory database.
+pub struct CreateTable<'a, N: Length> {
+    db: &'a Connection,
+    table: Cow<'a, str>,
+    columns: Array<SchemaColumn<'a>, N>,
+}
+
+#[async_trait]
+impl<'a, N: Length> super::CreateTable for CreateTable<'a, N> {
+    type Error = Error;
+
+    fn constraint<I>(self, _kind: ConstraintKind, _columns: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        // The mock database doesn't enforce constraints.
+        self
+    }
+
+    async fn execute(self) -> Result<(), Self::Error> {
+        self.db
+            .create_table(self.table, self.columns.map(|col| col.into_static()))
+            .await
     }
 }
 

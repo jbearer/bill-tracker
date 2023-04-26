@@ -2,7 +2,7 @@
 //!
 //! This instantiation is built on [`async-postgres`].
 
-use super::{Clause, SchemaColumn, SelectColumn, Value};
+use super::{Clause, ConstraintKind, SchemaColumn, SelectColumn, Value};
 use crate::{Array, Length};
 use async_std::task::spawn;
 use async_trait::async_trait;
@@ -87,37 +87,18 @@ impl Connection {
     }
 }
 
-#[async_trait]
 impl super::Connection for Connection {
     type Error = Error;
+    type CreateTable<'a, N: Length> = CreateTable<'a, N>;
     type Select<'a> = Select<'a>;
     type Insert<'a, N: Length> = Insert<'a, N>;
 
-    async fn create_table<N: Length>(
-        &self,
-        table: impl Into<Cow<'_, str>> + Send,
-        columns: Array<SchemaColumn<'_>, N>,
-    ) -> Result<(), Self::Error> {
-        let table = table.into();
-        let columns = columns
-            .into_iter()
-            .map(|col| {
-                let ty = match col.ty() {
-                    super::Type::Int4 => "int4",
-                    super::Type::Int8 => "int8",
-                    super::Type::UInt4 => "int8",
-                    super::Type::UInt8 => "int8",
-                    super::Type::Text => "text",
-                };
-                format!("{} {}", col.name(), ty)
-            })
-            .join(",");
-        self.query(
-            format!("CREATE TABLE IF NOT EXISTS {table} ({columns})").as_str(),
-            [],
-        )
-        .await?;
-        Ok(())
+    fn create_table<'a, N: Length>(
+        &'a self,
+        table: impl Into<Cow<'a, str>> + Send,
+        columns: Array<SchemaColumn<'a>, N>,
+    ) -> Self::CreateTable<'a, N> {
+        CreateTable::new(self, table.into(), columns)
     }
 
     fn select<'a>(
@@ -279,6 +260,84 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
     }
 }
 
+/// A `CREATE TABLE` statement for a PostgreSQL database.
+pub struct CreateTable<'a, N: Length> {
+    conn: &'a Connection,
+    table: Cow<'a, str>,
+    columns: Array<SchemaColumn<'a>, N>,
+    constraints: Vec<(ConstraintKind, Vec<String>)>,
+}
+
+impl<'a, N: Length> CreateTable<'a, N> {
+    fn new(conn: &'a Connection, table: Cow<'a, str>, columns: Array<SchemaColumn<'a>, N>) -> Self {
+        Self {
+            conn,
+            table,
+            columns,
+            constraints: vec![],
+        }
+    }
+}
+
+#[async_trait]
+impl<'a, N: Length> super::CreateTable for CreateTable<'a, N> {
+    type Error = Error;
+
+    fn constraint<I>(mut self, kind: ConstraintKind, columns: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        self.constraints
+            .push((kind, columns.into_iter().map(|col| col.into()).collect()));
+        self
+    }
+
+    async fn execute(self) -> Result<(), Self::Error> {
+        let table = self.table;
+        let columns = self
+            .columns
+            .into_iter()
+            .map(|col| {
+                let ty = match col.ty() {
+                    super::Type::Int4 => "int4",
+                    super::Type::Int8 => "int8",
+                    super::Type::UInt4 => "int8",
+                    super::Type::UInt8 => "int8",
+                    super::Type::Text => "text",
+                    super::Type::Serial => "serial",
+                };
+                format!("{} {}", col.name(), ty)
+            })
+            .join(",");
+        let constraints = self
+            .constraints
+            .into_iter()
+            .map(|(kind, cols)| {
+                let cols = cols.into_iter().join(",");
+                match kind {
+                    ConstraintKind::PrimaryKey => format!("CONSTRAINT PRIMARY KEY ({cols})"),
+                    ConstraintKind::Unique => format!("CONSTRAINT UNIQUE ({cols})"),
+                    ConstraintKind::ForeignKey { table } => {
+                        format!("CONSTRAINT FOREIGN KEY ({cols}) REFERENCES {table}")
+                    }
+                }
+            })
+            .join(",");
+        self.conn
+            .query(
+                format!(
+                    "CREATE TABLE IF NOT EXISTS {table} ({columns}{} {constraints})",
+                    if constraints.is_empty() { "" } else { "," }
+                )
+                .as_str(),
+                [],
+            )
+            .await?;
+        Ok(())
+    }
+}
+
 impl super::Row for Row {
     type Error = Error;
 
@@ -311,6 +370,7 @@ impl ToSql for Value {
                 })?;
                 x.to_sql(ty, out)
             }
+            Self::Serial(x) => x.to_sql(ty, out),
         }
     }
 
