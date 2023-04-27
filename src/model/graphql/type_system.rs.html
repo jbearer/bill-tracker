@@ -1001,6 +1001,70 @@
 <a href="#1001" id="1001">1001</a>
 <a href="#1002" id="1002">1002</a>
 <a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Type system for a relational GraphQL API.
 //!
 //! A relational GraphQL API is one which allows the client to filter results based on complex
@@ -1063,6 +1127,12 @@
 
     <span class="doccomment">/// A predicate on collections of objects of this type.
     </span><span class="kw">type </span>PluralPredicate: PluralPredicate&lt;<span class="self">Self</span>&gt;;
+
+    <span class="doccomment">/// The representation of values of this type when creating a new object.
+    ///
+    /// For scalars, the input is just the value of the scalar itself. For resources, the input is
+    /// the ID of the referenced resource.
+    </span><span class="kw">type </span>Input: Scalar;
 
     <span class="doccomment">/// Build an object of this type using a builder supplied by the backend.
     ///
@@ -1181,7 +1251,7 @@
     <span class="doccomment">/// A primitive type in the relational GraphQL type system.
     </span><span class="attr">#[sealed]
     </span><span class="kw">pub trait </span>Scalar:
-        Type&lt;Predicate = <span class="self">Self</span>::ScalarPredicate&gt; + gql::InputType + gql::ScalarType
+        Type&lt;Predicate = <span class="self">Self</span>::ScalarPredicate, Input = <span class="self">Self</span>&gt; + gql::InputType + gql::ScalarType
     {
         <span class="doccomment">/// Boolean predicates on this scalar type.
         ///
@@ -1584,6 +1654,8 @@
                         <span class="kw">type </span>Predicate = Predicate;
                         <span class="kw">type </span>PluralPredicate = PluralPredicate;
 
+                        <span class="kw">type </span>Input = <span class="self">Self</span>;
+
                         <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="macro">stringify!</span>(<span class="macro-nonterminal">$t</span>);
                         <span class="kw">const </span>PLURAL_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="macro">stringify!</span>(<span class="macro-nonterminal">$t</span>, s);
 
@@ -1740,6 +1812,8 @@
         <span class="kw">type </span>Predicate = StringPredicate;
         <span class="kw">type </span>PluralPredicate = StringsPredicate;
 
+        <span class="kw">type </span>Input = <span class="self">Self</span>;
+
         <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;String&quot;</span>;
         <span class="kw">const </span>PLURAL_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Strings&quot;</span>;
 
@@ -1775,7 +1849,7 @@
     <span class="kw">pub use </span>model_derive::Resource;
 
     <span class="doccomment">/// A complex type in the relational GraphQL type system.
-    </span><span class="kw">pub trait </span>Resource: Type&lt;Predicate = <span class="self">Self</span>::ResourcePredicate&gt; {
+    </span><span class="kw">pub trait </span>Resource: Type&lt;Predicate = <span class="self">Self</span>::ResourcePredicate, Input = Id&gt; {
         <span class="comment">// When `generic_const_exprs` stables, these can be converted to associated constants and
         // the various `Array` types can be converted to constant sized arrays. This will
         // clean the interface up considerably. Unfortunately, for now, it is unstable to use an
@@ -1785,6 +1859,8 @@
         </span><span class="kw">type </span>NumFields: Length;
         <span class="doccomment">/// The number of plural fields this resource has.
         </span><span class="kw">type </span>NumPluralFields: Length;
+        <span class="doccomment">/// The number of input fields this resource has.
+        </span><span class="kw">type </span>NumInputFields: Length;
 
         <span class="doccomment">/// The unique, sequentially increasing ID for this resource.
         </span><span class="kw">type </span>Id: Field&lt;Resource = <span class="self">Self</span>, Type = Id&gt;;
@@ -1795,6 +1871,11 @@
         /// [`ResourcePredicate`](ResourcePredicate) has the more expressive trait bound
         /// [`ResourcePredicate`] instead of the generic [`Predicate`].
         </span><span class="kw">type </span>ResourcePredicate: ResourcePredicate&lt;<span class="self">Self</span>&gt;;
+
+        <span class="doccomment">/// The input used to specify a new object of this type.
+        ///
+        /// The input contains input values for each of the input fields of this resource.
+        </span><span class="kw">type </span>ResourceInput: ResourceInput&lt;<span class="self">Self</span>&gt;;
 
         <span class="doccomment">/// Build a resource using a builder supplied by the backend.
         ///
@@ -1855,6 +1936,11 @@
             visitor: <span class="kw-2">&amp;mut </span>V,
         ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumPluralFields&gt;;
 
+        <span class="doccomment">/// Describe the input fields of this resource.
+        </span><span class="kw">fn </span>describe_input_fields&lt;V: InputFieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
+            visitor: <span class="kw-2">&amp;mut </span>V,
+        ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumInputFields&gt;;
+
         <span class="doccomment">/// The names of this resource&#39;s singular fields.
         </span><span class="kw">fn </span>field_names() -&gt; Array&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="self">Self</span>::NumFields&gt; {
             <span class="kw">struct </span>Visitor;
@@ -1868,6 +1954,21 @@
             }
 
             <span class="self">Self</span>::describe_fields(<span class="kw-2">&amp;mut </span>Visitor)
+        }
+
+        <span class="doccomment">/// The names of this resource&#39;s input fields.
+        </span><span class="kw">fn </span>input_field_names() -&gt; Array&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="self">Self</span>::NumInputFields&gt; {
+            <span class="kw">struct </span>Visitor;
+
+            <span class="kw">impl</span>&lt;T: Resource&gt; InputFieldVisitor&lt;T&gt; <span class="kw">for </span>Visitor {
+                <span class="kw">type </span>Output = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+                <span class="kw">fn </span>visit&lt;F: InputField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+                    F::NAME
+                }
+            }
+
+            <span class="self">Self</span>::describe_input_fields(<span class="kw-2">&amp;mut </span>Visitor)
         }
     }
 
@@ -1898,6 +1999,16 @@
         /// return [`None`], since the field has been taken.
         </span><span class="kw">fn </span>take&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;F::Type <span class="kw">as </span>Type&gt;::Predicate&gt; {
             F::take_predicate(<span class="self">self</span>)
+        }
+    }
+
+    <span class="doccomment">/// The input used to specify a new object of type `T`.
+    ///
+    /// The input contains input values for each of the input fields of `T`.
+    </span><span class="kw">pub trait </span>ResourceInput&lt;T: Resource&lt;ResourceInput = <span class="self">Self</span>&gt;&gt; {
+        <span class="doccomment">/// Get the input value for a field from the overall resource input.
+        </span><span class="kw">fn </span>get&lt;F: InputField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;F::Type <span class="kw">as </span>Type&gt;::Input {
+            F::get_input(<span class="self">self</span>)
         }
     }
 
@@ -1938,6 +2049,14 @@
         </span><span class="kw">fn </span>is_id() -&gt; bool {
             TypeId::of::&lt;<span class="self">Self</span>&gt;() == TypeId::of::&lt;&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::Id&gt;()
         }
+    }
+
+    <span class="doccomment">/// A field which must be present when a new object is created.
+    </span><span class="kw">pub trait </span>InputField: Field {
+        <span class="doccomment">/// Get the input value for this field from the overall input for its resource.
+        </span><span class="kw">fn </span>get_input(
+            input: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::ResourceInput,
+        ) -&gt; <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Input;
     }
 
     <span class="doccomment">/// Metadata about a plural field of a resource.
@@ -2002,6 +2121,15 @@
 
         <span class="doccomment">/// Tell the visitor about a field `F`.
         </span><span class="kw">fn </span>visit&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
+    }
+
+    <span class="doccomment">/// Visitor which allows a backend to visit the input fields of a [`Resource`].
+    </span><span class="kw">pub trait </span>InputFieldVisitor&lt;T: Resource&gt; {
+        <span class="doccomment">/// An output summarizing the results of visiting `T`s input fields.
+        </span><span class="kw">type </span>Output;
+
+        <span class="doccomment">/// Tell the visitor about a field `F`.
+        </span><span class="kw">fn </span>visit&lt;F: InputField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
     }
 }
 </code></pre></div>

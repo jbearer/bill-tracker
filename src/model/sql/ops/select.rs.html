@@ -258,9 +258,6 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Compilation of select from high-level GraphQL types into low-level SQL types.
 
 </span><span class="kw">use super</span>::{
@@ -437,17 +434,17 @@
     </span><span class="kw">async fn </span>test_resource_predicate() {
         <span class="kw">let </span>resources = [
             TestResource {
-                id: <span class="number">0</span>,
+                id: <span class="number">1</span>,
                 field1: <span class="number">0</span>,
                 field2: <span class="string">&quot;foo&quot;</span>.into(),
             },
             TestResource {
-                id: <span class="number">1</span>,
+                id: <span class="number">2</span>,
                 field1: <span class="number">1</span>,
                 field2: <span class="string">&quot;bar&quot;</span>.into(),
             },
             TestResource {
-                id: <span class="number">2</span>,
+                id: <span class="number">3</span>,
                 field1: <span class="number">1</span>,
                 field2: <span class="string">&quot;baz&quot;</span>.into(),
             },
@@ -463,17 +460,14 @@
             ],
             [
                 <span class="macro">array!</span>[Value;
-                    Value::from(resources[<span class="number">0</span>].id),
                     Value::from(resources[<span class="number">0</span>].field1),
                     Value::from(resources[<span class="number">0</span>].field2.clone()),
                 ],
                 <span class="macro">array!</span>[Value;
-                    Value::from(resources[<span class="number">1</span>].id),
                     Value::from(resources[<span class="number">1</span>].field1),
                     Value::from(resources[<span class="number">1</span>].field2.clone()),
                 ],
                 <span class="macro">array!</span>[Value;
-                    Value::from(resources[<span class="number">2</span>].id),
                     Value::from(resources[<span class="number">2</span>].field1),
                     Value::from(resources[<span class="number">2</span>].field2.clone()),
                 ],

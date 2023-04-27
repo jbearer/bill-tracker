@@ -597,6 +597,85 @@
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Derive macro for the `Resource` trait.
 
 </span><span class="kw">use </span><span class="kw">super</span>::graphql_path;
@@ -683,14 +762,16 @@
     // impl so that it shows up in the exported schema.
     </span><span class="kw">let </span>doc = parse_docs(<span class="kw-2">&amp;</span>attrs);
 
-    <span class="comment">// Derive names for the various predicate structs we are going to create.
-    </span><span class="kw">let </span>pred_name = <span class="macro">format_ident!</span>(<span class="string">&quot;{}Predicate&quot;</span>, name);
+    <span class="comment">// Derive names for the various structs we are going to create.
+    </span><span class="kw">let </span>input_name = <span class="macro">format_ident!</span>(<span class="string">&quot;{}Input&quot;</span>, name);
+    <span class="kw">let </span>pred_name = <span class="macro">format_ident!</span>(<span class="string">&quot;{}Predicate&quot;</span>, name);
     <span class="kw">let </span>has_name = <span class="macro">format_ident!</span>(<span class="string">&quot;{}Has&quot;</span>, name);
     <span class="kw">let </span>plural_pred_name = <span class="macro">format_ident!</span>(<span class="string">&quot;{}Predicate&quot;</span>, plural_name);
     <span class="kw">let </span>quant_name = <span class="macro">format_ident!</span>(<span class="string">&quot;Quantified{}Predicate&quot;</span>, name);
 
-    <span class="comment">// Create documentation for each of the predicate structs.
-    </span><span class="kw">let </span>has_doc = <span class="macro">format!</span>(<span class="string">&quot;A predicate on fields of {}.&quot;</span>, name);
+    <span class="comment">// Create documentation for each of the structs.
+    </span><span class="kw">let </span>input_doc = <span class="macro">format!</span>(<span class="string">&quot;An input to create a new {}.&quot;</span>, name);
+    <span class="kw">let </span>has_doc = <span class="macro">format!</span>(<span class="string">&quot;A predicate on fields of {}.&quot;</span>, name);
     <span class="kw">let </span>pred_doc = <span class="macro">format!</span>(<span class="string">&quot;A predicate used to filter {}.&quot;</span>, plural_name);
     <span class="kw">let </span>quant_doc = <span class="macro">format!</span>(
         <span class="string">&quot;A predicate which must match a certain quantity of {}.&quot;</span>,
@@ -771,10 +852,26 @@
             </span>}
         })
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+    <span class="kw">let </span>input_field_visitors = fields
+        .iter()
+        .filter_map(|f| {
+            <span class="kw">if </span>field_is_input(<span class="kw-2">&amp;</span>p, f) {
+                <span class="prelude-val">Some</span>(generate_field_visitor(f))
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>}
+        })
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
     <span class="comment">// Count the number of fields of each type.
     </span><span class="kw">let </span>num_singular_fields = <span class="macro">format_ident!</span>(<span class="string">&quot;U{}&quot;</span>, singular_field_visitors.len());
     <span class="kw">let </span>num_plural_fields = <span class="macro">format_ident!</span>(<span class="string">&quot;U{}&quot;</span>, plural_field_visitors.len());
+    <span class="kw">let </span>num_input_fields = <span class="macro">format_ident!</span>(<span class="string">&quot;U{}&quot;</span>, input_field_visitors.len());
+
+    <span class="comment">// Generate an input field for each required field of this struct.
+    </span><span class="kw">let </span>input_fields = fields
+        .iter()
+        .filter_map(|f| generate_input_field(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>export, f));
 
     <span class="comment">// Generate predicates for each field of this struct.
     </span><span class="kw">let </span>pred_fields = fields.iter().map(|f| generate_predicate_field(<span class="kw-2">&amp;</span>p, f));
@@ -799,9 +896,10 @@
             <span class="kw">use </span>#graphql::{
                 async_graphql, connection::Connection, backend::{Cursor, DataSource, Many},
                 type_system::{
-                    typenum, Array, Builder, BuildError, Field, FieldVisitor, PluralField,
-                    PluralFieldVisitor, PluralPredicate, PluralPredicateCompiler, PluralType,
-                    Predicate, Resource, ResourceBuilder, ResourcePredicate, Type, Value, Visitor,
+                    typenum, Array, Builder, BuildError, Field, FieldVisitor, InputField,
+                    InputFieldVisitor, PluralField, PluralFieldVisitor, PluralPredicate,
+                    PluralPredicateCompiler, PluralType, Predicate, Resource, ResourceBuilder,
+                    ResourceInput, ResourcePredicate, Type, Value, Visitor,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, <span class="prelude-ty">Result</span>,
             };
@@ -822,6 +920,14 @@
                 #(#field_metas)*
             }
             #(#field_meta_impls)*
+
+            <span class="attr">#[doc = #input_doc]
+            #[derive(Clone, Debug, InputObject)]
+            </span>#export <span class="kw">struct </span>#input_name {
+                #(#input_fields)*
+            }
+
+            <span class="kw">impl </span>ResourceInput&lt;#name&gt; <span class="kw">for </span>#input_name {}
 
             <span class="attr">#[doc = #has_doc]
             #[derive(Clone, Debug, Default, InputObject)]
@@ -892,6 +998,10 @@
                 <span class="kw">type </span>Predicate = #pred_name;
                 <span class="kw">type </span>PluralPredicate = #plural_pred_name;
 
+                <span class="comment">// When referred to as an input to another resource, this resource is referenced by
+                // ID, not included by value.
+                </span><span class="kw">type </span>Input = Id;
+
                 <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #name_str;
                 <span class="kw">const </span>PLURAL_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #plural_name_str;
 
@@ -907,10 +1017,12 @@
             <span class="kw">impl </span>Resource <span class="kw">for </span>#name {
                 <span class="kw">type </span>NumFields = typenum::#num_singular_fields;
                 <span class="kw">type </span>NumPluralFields = typenum::#num_plural_fields;
+                <span class="kw">type </span>NumInputFields = typenum::#num_input_fields;
 
                 <span class="kw">type </span>Id = fields::#id_name;
 
                 <span class="kw">type </span>ResourcePredicate = #pred_name;
+                <span class="kw">type </span>ResourceInput = #input_name;
 
                 <span class="kw">fn </span>build_resource&lt;B: ResourceBuilder&lt;<span class="self">Self</span>&gt;&gt;(builder: B) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, B::Error&gt; {
                     <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
@@ -929,6 +1041,12 @@
                     visitor: <span class="kw-2">&amp;mut </span>V,
                 ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumPluralFields&gt; {
                     [#(#plural_field_visitors),<span class="kw-2">*</span>].into()
+                }
+
+                <span class="kw">fn </span>describe_input_fields&lt;V: InputFieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
+                    visitor: <span class="kw-2">&amp;mut </span>V,
+                ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumInputFields&gt; {
+                    [#(#input_field_visitors),<span class="kw-2">*</span>].into()
                 }
             }
         }
@@ -989,6 +1107,19 @@
                 <span class="macro">quote!</span>(#pred_name::Is(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,)
             }
         });
+        <span class="kw">let </span>input = <span class="kw">if </span>field_is_input(p, f) {
+            <span class="prelude-val">Some</span>(<span class="macro">quote! </span>{
+                <span class="kw">impl </span>InputField <span class="kw">for </span>fields::#meta_name {
+                    <span class="kw">fn </span>get_input(
+                        input: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Resource <span class="kw">as </span>Resource&gt;::ResourceInput,
+                    ) -&gt; <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Input {
+                        <span class="kw-2">&amp;</span>input.#name
+                    }
+                }
+            })
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
 
         <span class="macro">quote! </span>{
             <span class="kw">impl </span>Field <span class="kw">for </span>fields::#meta_name {
@@ -1033,6 +1164,8 @@
                     }
                 }
             }
+
+            #input
         }
     }
 }
@@ -1057,6 +1190,20 @@
     <span class="macro">quote! </span>{
         visitor.visit::&lt;fields::#meta&gt;()
     }
+}
+
+<span class="kw">fn </span>generate_input_field(p: <span class="kw-2">&amp;</span>AttrParser, vis: <span class="kw-2">&amp;</span>Visibility, f: <span class="kw-2">&amp;</span>Field) -&gt; <span class="prelude-ty">Option</span>&lt;TokenStream&gt; {
+    <span class="kw">if </span>field_is_input(p, f) {
+        <span class="kw">let </span>ty = <span class="kw-2">&amp;</span>f.ty;
+        <span class="kw">let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span>f.ident <span class="kw">else </span>{
+            <span class="macro">panic!</span>(<span class="string">&quot;Resource fields must be named&quot;</span>);
+        };
+        <span class="prelude-val">Some</span>(<span class="macro">quote! </span>{
+            #vis #name: &lt;#ty <span class="kw">as </span>Type&gt;::Input,
+        })
+    } <span class="kw">else </span>{
+        <span class="prelude-val">None
+    </span>}
 }
 
 <span class="kw">fn </span>generate_predicate_field(p: <span class="kw-2">&amp;</span>AttrParser, f: <span class="kw-2">&amp;</span>Field) -&gt; TokenStream {
@@ -1180,6 +1327,17 @@
     <span class="comment">// If the field is not explicitly or implicitly plural, it is not plural.
     </span><span class="bool-val">false
 </span>}
+
+<span class="kw">fn </span>field_is_input(p: <span class="kw-2">&amp;</span>AttrParser, f: <span class="kw-2">&amp;</span>Field) -&gt; bool {
+    <span class="comment">// Plural fields are represented as the inverse of a singular relationship from some other
+    // resource; in other words, they are not explicitly stored in this resource itself.
+    //
+    // The ID field is special in that it is auto-generated from an increasing sequence, so it is
+    // not required (and, indeed, not allowed) when creating a resource.
+    //
+    // Thus, input fields are any that are neither plural nor ID.
+    </span>!field_is_plural(p, f) &amp;&amp; !field_is_id(p, f)
+}
 
 <span class="kw">fn </span>skipped_field_default(p: <span class="kw-2">&amp;</span>AttrParser, f: <span class="kw-2">&amp;</span>Field) -&gt; <span class="prelude-ty">Option</span>&lt;TokenStream&gt; {
     <span class="kw">if </span>p.has_bool(<span class="kw-2">&amp;</span>f.attrs, <span class="string">&quot;skip&quot;</span>) {

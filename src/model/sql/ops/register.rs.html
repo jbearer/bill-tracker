@@ -388,7 +388,7 @@
 
                 <span class="comment">// Add the corresponding ID as a foreign key on this table.
                 </span>(
-                    SchemaColumn::new(<span class="self">self</span>.column_name, Type::Int8),
+                    SchemaColumn::new(<span class="self">self</span>.column_name, Type::Int4),
                     <span class="prelude-val">Some</span>(ConstraintKind::ForeignKey {
                         table: table_name::&lt;T&gt;(),
                     }),
@@ -585,7 +585,7 @@
             schema[<span class="string">&quot;one_to_ones&quot;</span>],
             [
                 SchemaColumn::new(<span class="string">&quot;id&quot;</span>, Type::Serial),
-                SchemaColumn::new(<span class="string">&quot;simple&quot;</span>, Type::Int8),
+                SchemaColumn::new(<span class="string">&quot;simple&quot;</span>, Type::Int4),
             ]
         );
     }

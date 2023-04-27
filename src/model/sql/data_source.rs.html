@@ -125,7 +125,6 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Instantiation of a GraphQL [`DataSource`](gql::DataSource) for a SQL database.
 
 </span><span class="kw">use super</span>::{db, ops};
@@ -180,13 +179,12 @@
         })
     }
 
-    <span class="kw">async fn </span>insert&lt;I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, resources: I) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;
+    <span class="kw">async fn </span>insert&lt;T: Resource, I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, inputs: I) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;
     <span class="kw">where
-        </span>I: IntoIterator + Send,
+        </span>I: IntoIterator&lt;Item = T::ResourceInput&gt; + Send,
         I::IntoIter: Send,
-        I::Item: Resource,
     {
-        ops::insert::execute(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, resources).<span class="kw">await
+        ops::insert::execute::&lt;Db, T&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, inputs).<span class="kw">await
     </span>}
 }
 
