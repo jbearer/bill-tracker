@@ -672,11 +672,23 @@
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Instantiation of the abstract [`db`](super) interface for PostgreSQL.
 //!
 //! This instantiation is built on [`async-postgres`].
 
-</span><span class="kw">use super</span>::{Clause, ConstraintKind, SchemaColumn, SelectColumn, Value};
+</span><span class="kw">use super</span>::{
+    escape_ident, Clause, ConstraintKind, JoinClause, SchemaColumn, SelectColumn, Value,
+    WhereClause,
+};
 <span class="kw">use crate</span>::{Array, Length};
 <span class="kw">use </span>async_std::task::spawn;
 <span class="kw">use </span>async_trait::async_trait;
@@ -807,7 +819,8 @@
     conn: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Connection,
     select: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[SelectColumn&lt;<span class="lifetime">&#39;a</span>&gt;],
     table: Cow&lt;<span class="lifetime">&#39;a</span>, str&gt;,
-    conditions: Vec&lt;String&gt;,
+    joins: Vec&lt;String&gt;,
+    filters: Vec&lt;String&gt;,
     params: Vec&lt;Value&gt;,
 }
 
@@ -817,13 +830,14 @@
             conn,
             select,
             table,
-            conditions: Default::default(),
+            joins: Default::default(),
+            filters: Default::default(),
             params: Default::default(),
         }))
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">super</span>::Select <span class="kw">for </span>Select&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">super</span>::Select&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>Select&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">type </span>Error = Error;
     <span class="kw">type </span>Row = Row;
     <span class="kw">type </span>Stream = BoxStream&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Row, <span class="self">Self</span>::Error&gt;&gt;;
@@ -831,12 +845,25 @@
     <span class="kw">fn </span>clause(<span class="self">self</span>, clause: Clause) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>query) = <span class="self">self</span>.<span class="number">0 </span><span class="kw">else </span>{ <span class="kw">return </span><span class="self">self</span>; };
         <span class="kw">match </span>clause {
-            Clause::Where { column, op, param } =&gt; {
+            Clause::Where(WhereClause { column, op, param }) =&gt; {
                 query.params.push(param);
-                query.conditions.push(<span class="macro">format!</span>(
-                    <span class="string">&quot;{} {op} ${}&quot;</span>,
-                    escape_ident(column),
+                query.filters.push(<span class="macro">format!</span>(
+                    <span class="string">&quot;WHERE {} {op} ${}&quot;</span>,
+                    column.escape(),
                     query.params.len()
+                ));
+            }
+            Clause::Join(JoinClause {
+                table,
+                lhs,
+                op,
+                rhs,
+            }) =&gt; {
+                query.joins.push(<span class="macro">format!</span>(
+                    <span class="string">&quot;JOIN {} ON {} {op} {}&quot;</span>,
+                    escape_ident(table),
+                    lhs.escape(),
+                    rhs.escape()
                 ));
             }
         }
@@ -857,21 +884,18 @@
                 .select
                 .iter()
                 .map(|col| <span class="kw">match </span>col {
-                    SelectColumn::Col(name) =&gt; escape_ident(name),
+                    SelectColumn::Column(col) =&gt; col.escape(),
                     SelectColumn::All =&gt; <span class="string">&quot;*&quot;</span>.to_string(),
                 })
                 .join(<span class="string">&quot;, &quot;</span>);
             <span class="kw">let </span>table = escape_ident(query.table);
 
-            <span class="comment">// Format the `WHERE` clause if there is one.
-            </span><span class="kw">let </span>clauses = <span class="kw">if </span>query.conditions.is_empty() {
-                String::new()
-            } <span class="kw">else </span>{
-                <span class="macro">format!</span>(<span class="string">&quot;WHERE {}&quot;</span>, query.conditions.into_iter().join(<span class="string">&quot; AND &quot;</span>))
-            };
-
             <span class="comment">// Construct the SQL statement.
-            </span><span class="kw">let </span>statement = <span class="macro">format!</span>(<span class="string">&quot;SELECT {columns} FROM {table} {clauses}&quot;</span>);
+            </span><span class="kw">let </span>statement = <span class="macro">format!</span>(
+                <span class="string">&quot;SELECT {columns} FROM {table} {} {}&quot;</span>,
+                query.joins.join(<span class="string">&quot; &quot;</span>),
+                query.filters.join(<span class="string">&quot; &quot;</span>)
+            );
 
             <span class="comment">// Run the query.
             </span><span class="kw">let </span>rows = query.conn.query(statement.as_str(), <span class="kw-2">&amp;</span>query.params).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1077,7 +1101,7 @@
 <span class="kw">impl </span><span class="kw">super</span>::Row <span class="kw">for </span>Row {
     <span class="kw">type </span>Error = Error;
 
-    <span class="kw">fn </span>column(<span class="kw-2">&amp;</span><span class="self">self</span>, column: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Value, <span class="self">Self</span>::Error&gt; {
+    <span class="kw">fn </span>column(<span class="kw-2">&amp;</span><span class="self">self</span>, column: usize) -&gt; <span class="prelude-ty">Result</span>&lt;Value, <span class="self">Self</span>::Error&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.try_get(column)<span class="question-mark">?</span>)
     }
 }
@@ -1155,11 +1179,6 @@
             )
         }
     }
-}
-
-<span class="doccomment">/// Escape an identifier (table name, column name, etc.) for inclusion in a PostgreSQL query.
-</span><span class="kw">fn </span>escape_ident(s: <span class="kw">impl </span>AsRef&lt;str&gt;) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}\&quot;&quot;</span>, s.as_ref().replace(<span class="string">&#39;&quot;&#39;</span>, <span class="string">&quot;\&quot;\&quot;&quot;</span>))
 }
 
 <span class="attr">#[cfg(test)]
@@ -1323,28 +1342,27 @@
         <span class="macro">assert_eq!</span>(page, <span class="kw-2">&amp;</span>simples[<span class="number">1</span>..]);
 
         <span class="comment">// Insert an object with a relation.
-        </span>conn.insert::&lt;Reference, <span class="kw">_</span>&gt;([reference::ReferenceInput { simple: <span class="number">1 </span>}])
+        </span>conn.insert::&lt;Reference, <span class="kw">_</span>&gt;([reference::ReferenceInput { simple: <span class="number">2 </span>}])
             .<span class="kw">await
             </span>.unwrap();
 
         <span class="comment">// Query it back, filling in the relationship.
-        // TODO enable this once joins are implemented in queries.
-        // let results = conn.query::&lt;Reference&gt;(None).await.unwrap();
-        // let page = conn
-        //     .load_page(&amp;results, Default::default())
-        //     .await
-        //     .unwrap()
-        //     .into_iter()
-        //     .map(|edge| edge.node)
-        //     .collect::&lt;Vec&lt;_&gt;&gt;();
-        // assert_eq!(
-        //     page,
-        //     [Reference {
-        //         id: 0,
-        //         simple: simples[1].clone()
-        //     }]
-        // );
-    </span>}
+        </span><span class="kw">let </span>results = conn.query::&lt;Reference&gt;(<span class="prelude-val">None</span>).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>page = conn
+            .load_page(<span class="kw-2">&amp;</span>results, Default::default())
+            .<span class="kw">await
+            </span>.unwrap()
+            .into_iter()
+            .map(|edge| edge.node)
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        <span class="macro">assert_eq!</span>(
+            page,
+            [Reference {
+                id: <span class="number">1</span>,
+                simple: simples[<span class="number">1</span>].clone()
+            }]
+        );
+    }
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="model" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.2 (9eb3afe9e 2023-03-27)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

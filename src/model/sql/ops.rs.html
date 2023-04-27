@@ -252,9 +252,17 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Compilation of high-level GraphQL operations into low-level SQL operations.
 
-</span><span class="kw">use </span><span class="kw">super</span>::db::{Type, Value};
+</span><span class="kw">use </span><span class="kw">super</span>::db::{Column, Type, Value};
 <span class="kw">use </span><span class="kw">crate</span>::graphql::type_system <span class="kw">as </span>gql;
 <span class="kw">use </span>convert_case::{Case, Casing};
 <span class="kw">use </span>is_type::Is;
@@ -320,6 +328,14 @@
 <span class="doccomment">/// The name of the table corresponding to the resource `T`.
 </span><span class="kw">fn </span>table_name&lt;T: gql::Resource&gt;() -&gt; String {
     to_snake_case(T::PLURAL_NAME)
+}
+
+<span class="doccomment">/// The column corresponding to the field `F`.
+</span><span class="kw">fn </span>field_column&lt;F: gql::Field&gt;() -&gt; Column&lt;<span class="lifetime">&#39;static</span>&gt; {
+    Column::qualified(
+        table_name::&lt;F::Resource&gt;().into(),
+        column_name::&lt;F&gt;().into(),
+    )
 }
 
 <span class="doccomment">/// The name of the column corresponding to the field `F`.
