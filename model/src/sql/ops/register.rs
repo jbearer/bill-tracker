@@ -92,7 +92,7 @@ impl<'a, 'd, C: Connection, T: gql::Resource> gql::FieldVisitor<T> for ColumnBui
 
                 // Add the corresponding ID as a foreign key on this table.
                 (
-                    SchemaColumn::new(self.column_name, Type::Int8),
+                    SchemaColumn::new(self.column_name, Type::Int4),
                     Some(ConstraintKind::ForeignKey {
                         table: table_name::<T>(),
                     }),
@@ -289,7 +289,7 @@ mod test {
             schema["one_to_ones"],
             [
                 SchemaColumn::new("id", Type::Serial),
-                SchemaColumn::new("simple", Type::Int8),
+                SchemaColumn::new("simple", Type::Int4),
             ]
         );
     }

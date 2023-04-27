@@ -84,13 +84,15 @@ fn generate_struct(
     // impl so that it shows up in the exported schema.
     let doc = parse_docs(&attrs);
 
-    // Derive names for the various predicate structs we are going to create.
+    // Derive names for the various structs we are going to create.
+    let input_name = format_ident!("{}Input", name);
     let pred_name = format_ident!("{}Predicate", name);
     let has_name = format_ident!("{}Has", name);
     let plural_pred_name = format_ident!("{}Predicate", plural_name);
     let quant_name = format_ident!("Quantified{}Predicate", name);
 
-    // Create documentation for each of the predicate structs.
+    // Create documentation for each of the structs.
+    let input_doc = format!("An input to create a new {}.", name);
     let has_doc = format!("A predicate on fields of {}.", name);
     let pred_doc = format!("A predicate used to filter {}.", plural_name);
     let quant_doc = format!(
@@ -172,10 +174,26 @@ fn generate_struct(
             }
         })
         .collect::<Vec<_>>();
+    let input_field_visitors = fields
+        .iter()
+        .filter_map(|f| {
+            if field_is_input(&p, f) {
+                Some(generate_field_visitor(f))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
 
     // Count the number of fields of each type.
     let num_singular_fields = format_ident!("U{}", singular_field_visitors.len());
     let num_plural_fields = format_ident!("U{}", plural_field_visitors.len());
+    let num_input_fields = format_ident!("U{}", input_field_visitors.len());
+
+    // Generate an input field for each required field of this struct.
+    let input_fields = fields
+        .iter()
+        .filter_map(|f| generate_input_field(&p, &export, f));
 
     // Generate predicates for each field of this struct.
     let pred_fields = fields.iter().map(|f| generate_predicate_field(&p, f));
@@ -200,9 +218,10 @@ fn generate_struct(
             use #graphql::{
                 async_graphql, connection::Connection, backend::{Cursor, DataSource, Many},
                 type_system::{
-                    typenum, Array, Builder, BuildError, Field, FieldVisitor, PluralField,
-                    PluralFieldVisitor, PluralPredicate, PluralPredicateCompiler, PluralType,
-                    Predicate, Resource, ResourceBuilder, ResourcePredicate, Type, Value, Visitor,
+                    typenum, Array, Builder, BuildError, Field, FieldVisitor, InputField,
+                    InputFieldVisitor, PluralField, PluralFieldVisitor, PluralPredicate,
+                    PluralPredicateCompiler, PluralType, Predicate, Resource, ResourceBuilder,
+                    ResourceInput, ResourcePredicate, Type, Value, Visitor,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, Result,
             };
@@ -223,6 +242,14 @@ fn generate_struct(
                 #(#field_metas)*
             }
             #(#field_meta_impls)*
+
+            #[doc = #input_doc]
+            #[derive(Clone, Debug, InputObject)]
+            #export struct #input_name {
+                #(#input_fields)*
+            }
+
+            impl ResourceInput<#name> for #input_name {}
 
             #[doc = #has_doc]
             #[derive(Clone, Debug, Default, InputObject)]
@@ -293,6 +320,10 @@ fn generate_struct(
                 type Predicate = #pred_name;
                 type PluralPredicate = #plural_pred_name;
 
+                // When referred to as an input to another resource, this resource is referenced by
+                // ID, not included by value.
+                type Input = Id;
+
                 const NAME: &'static str = #name_str;
                 const PLURAL_NAME: &'static str = #plural_name_str;
 
@@ -308,10 +339,12 @@ fn generate_struct(
             impl Resource for #name {
                 type NumFields = typenum::#num_singular_fields;
                 type NumPluralFields = typenum::#num_plural_fields;
+                type NumInputFields = typenum::#num_input_fields;
 
                 type Id = fields::#id_name;
 
                 type ResourcePredicate = #pred_name;
+                type ResourceInput = #input_name;
 
                 fn build_resource<B: ResourceBuilder<Self>>(builder: B) -> Result<Self, B::Error> {
                     Ok(Self {
@@ -330,6 +363,12 @@ fn generate_struct(
                     visitor: &mut V,
                 ) -> Array<V::Output, Self::NumPluralFields> {
                     [#(#plural_field_visitors),*].into()
+                }
+
+                fn describe_input_fields<V: InputFieldVisitor<Self>>(
+                    visitor: &mut V,
+                ) -> Array<V::Output, Self::NumInputFields> {
+                    [#(#input_field_visitors),*].into()
                 }
             }
         }
@@ -390,6 +429,19 @@ fn generate_field_meta_impl(
                 quote!(#pred_name::Is(_) => None,)
             }
         });
+        let input = if field_is_input(p, f) {
+            Some(quote! {
+                impl InputField for fields::#meta_name {
+                    fn get_input(
+                        input: &<Self::Resource as Resource>::ResourceInput,
+                    ) -> &<Self::Type as Type>::Input {
+                        &input.#name
+                    }
+                }
+            })
+        } else {
+            None
+        };
 
         quote! {
             impl Field for fields::#meta_name {
@@ -434,6 +486,8 @@ fn generate_field_meta_impl(
                     }
                 }
             }
+
+            #input
         }
     }
 }
@@ -457,6 +511,20 @@ fn generate_field_visitor(f: &Field) -> TokenStream {
     let meta = field_meta_name(name);
     quote! {
         visitor.visit::<fields::#meta>()
+    }
+}
+
+fn generate_input_field(p: &AttrParser, vis: &Visibility, f: &Field) -> Option<TokenStream> {
+    if field_is_input(p, f) {
+        let ty = &f.ty;
+        let Some(name) = &f.ident else {
+            panic!("Resource fields must be named");
+        };
+        Some(quote! {
+            #vis #name: <#ty as Type>::Input,
+        })
+    } else {
+        None
     }
 }
 
@@ -580,6 +648,17 @@ fn field_is_plural(p: &AttrParser, f: &Field) -> bool {
     }
     // If the field is not explicitly or implicitly plural, it is not plural.
     false
+}
+
+fn field_is_input(p: &AttrParser, f: &Field) -> bool {
+    // Plural fields are represented as the inverse of a singular relationship from some other
+    // resource; in other words, they are not explicitly stored in this resource itself.
+    //
+    // The ID field is special in that it is auto-generated from an increasing sequence, so it is
+    // not required (and, indeed, not allowed) when creating a resource.
+    //
+    // Thus, input fields are any that are neither plural nor ID.
+    !field_is_plural(p, f) && !field_is_id(p, f)
 }
 
 fn skipped_field_default(p: &AttrParser, f: &Field) -> Option<TokenStream> {

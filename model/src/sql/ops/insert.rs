@@ -3,18 +3,18 @@
 use super::{column_name_of_field, scalar_to_value, table_name, Error};
 use crate::Array;
 use crate::{
-    graphql::type_system::{self as gql, Resource, Type},
+    graphql::type_system::{self as gql, ResourceInput},
     sql::db::{Connection, Insert, Value},
 };
 
 /// Insert items of resource `T` into the database.
 pub async fn execute<C: Connection, T: gql::Resource>(
     conn: &C,
-    resources: impl IntoIterator<Item = T>,
+    inputs: impl IntoIterator<Item = T::ResourceInput>,
 ) -> Result<(), Error> {
     let table = table_name::<T>();
-    let columns = T::field_names().map(column_name_of_field);
-    let rows = resources.into_iter().map(build_row);
+    let columns = T::input_field_names().map(column_name_of_field);
+    let rows = inputs.into_iter().map(build_row::<T>);
     conn.insert(&table, columns)
         .rows(rows)
         .execute()
@@ -22,42 +22,18 @@ pub async fn execute<C: Connection, T: gql::Resource>(
         .map_err(Error::sql)
 }
 
-fn build_row<T: gql::Resource>(resource: T) -> Array<Value, T::NumFields> {
-    struct Visitor<'a, T>(&'a T);
+fn build_row<T: gql::Resource>(input: T::ResourceInput) -> Array<Value, T::NumInputFields> {
+    struct Visitor<'a, T: gql::Resource>(&'a T::ResourceInput);
 
-    impl<'a, T: gql::Resource> gql::FieldVisitor<T> for Visitor<'a, T> {
+    impl<'a, T: gql::Resource> gql::InputFieldVisitor<T> for Visitor<'a, T> {
         type Output = Value;
 
-        fn visit<F: gql::Field<Resource = T>>(&mut self) -> Self::Output {
-            build_row_value::<F>(self.0)
-        }
-    }
-
-    T::describe_fields(&mut Visitor(&resource))
-}
-
-fn build_row_value<F: gql::Field>(resource: &F::Resource) -> Value {
-    struct Visitor<'a, F: gql::Field>(&'a F::Resource);
-
-    impl<'a, F: gql::Field> gql::Visitor<F::Type> for Visitor<'a, F> {
-        type Output = Value;
-
-        fn resource(self) -> Self::Output
-        where
-            F::Type: gql::Resource,
-        {
-            unimplemented!("nested resources")
-        }
-
-        fn scalar(self) -> Self::Output
-        where
-            F::Type: gql::Scalar,
-        {
+        fn visit<F: gql::InputField<Resource = T>>(&mut self) -> Self::Output {
             scalar_to_value(self.0.get::<F>().clone())
         }
     }
 
-    F::Type::describe(Visitor::<F>(resource))
+    T::describe_input_fields(&mut Visitor(&input))
 }
 
 #[cfg(test)]
@@ -95,29 +71,46 @@ mod test {
         .await
         .unwrap();
 
-        let resources = [
-            TestResource {
-                id: 0,
-                field1: 0,
-                field2: "foo".into(),
-            },
-            TestResource {
-                id: 1,
-                field1: 1,
-                field2: "bar".into(),
-            },
-            TestResource {
-                id: 2,
-                field1: 1,
-                field2: "baz".into(),
-            },
-        ];
-        ops::insert::execute(&db, resources.clone()).await.unwrap();
+        ops::insert::execute::<_, TestResource>(
+            &db,
+            [
+                test_resource::TestResourceInput {
+                    field1: 0,
+                    field2: "foo".into(),
+                },
+                test_resource::TestResourceInput {
+                    field1: 1,
+                    field2: "bar".into(),
+                },
+                test_resource::TestResourceInput {
+                    field1: 1,
+                    field2: "baz".into(),
+                },
+            ],
+        )
+        .await
+        .unwrap();
         assert_eq!(
             ops::select::execute::<_, TestResource>(&db, None)
                 .await
                 .unwrap(),
-            resources
+            [
+                TestResource {
+                    id: 1,
+                    field1: 0,
+                    field2: "foo".into(),
+                },
+                TestResource {
+                    id: 2,
+                    field1: 1,
+                    field2: "bar".into(),
+                },
+                TestResource {
+                    id: 3,
+                    field1: 1,
+                    field2: "baz".into(),
+                },
+            ]
         );
     }
 }

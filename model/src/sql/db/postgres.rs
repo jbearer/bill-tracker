@@ -609,10 +609,15 @@ mod test {
         let db = postgres_test!();
         let mut conn = SqlDataSource::from(db.connect().await);
 
-        let simples = [Simple { id: 0, field: 0 }, Simple { id: 1, field: 1 }];
+        let simples = [Simple { id: 1, field: 0 }, Simple { id: 2, field: 1 }];
 
         conn.register::<Reference>().await.unwrap();
-        conn.insert(simples.clone()).await.unwrap();
+        conn.insert::<Simple, _>([
+            simple::SimpleInput { field: 0 },
+            simple::SimpleInput { field: 1 },
+        ])
+        .await
+        .unwrap();
 
         // Select all elements.
         let results = conn.query::<Simple>(None).await.unwrap();
@@ -642,5 +647,28 @@ mod test {
             .map(|edge| edge.node)
             .collect::<Vec<_>>();
         assert_eq!(page, &simples[1..]);
+
+        // Insert an object with a relation.
+        conn.insert::<Reference, _>([reference::ReferenceInput { simple: 1 }])
+            .await
+            .unwrap();
+
+        // Query it back, filling in the relationship.
+        // TODO enable this once joins are implemented in queries.
+        // let results = conn.query::<Reference>(None).await.unwrap();
+        // let page = conn
+        //     .load_page(&results, Default::default())
+        //     .await
+        //     .unwrap()
+        //     .into_iter()
+        //     .map(|edge| edge.node)
+        //     .collect::<Vec<_>>();
+        // assert_eq!(
+        //     page,
+        //     [Reference {
+        //         id: 0,
+        //         simple: simples[1].clone()
+        //     }]
+        // );
     }
 }

@@ -52,13 +52,12 @@ impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSour
         })
     }
 
-    async fn insert<I>(&mut self, resources: I) -> Result<(), Self::Error>
+    async fn insert<T: Resource, I>(&mut self, inputs: I) -> Result<(), Self::Error>
     where
-        I: IntoIterator + Send,
+        I: IntoIterator<Item = T::ResourceInput> + Send,
         I::IntoIter: Send,
-        I::Item: Resource,
     {
-        ops::insert::execute(&self.0, resources).await
+        ops::insert::execute::<Db, T>(&self.0, inputs).await
     }
 }
 

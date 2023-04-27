@@ -174,17 +174,17 @@ mod test {
     async fn test_resource_predicate() {
         let resources = [
             TestResource {
-                id: 0,
+                id: 1,
                 field1: 0,
                 field2: "foo".into(),
             },
             TestResource {
-                id: 1,
+                id: 2,
                 field1: 1,
                 field2: "bar".into(),
             },
             TestResource {
-                id: 2,
+                id: 3,
                 field1: 1,
                 field2: "baz".into(),
             },
@@ -200,17 +200,14 @@ mod test {
             ],
             [
                 array![Value;
-                    Value::from(resources[0].id),
                     Value::from(resources[0].field1),
                     Value::from(resources[0].field2.clone()),
                 ],
                 array![Value;
-                    Value::from(resources[1].id),
                     Value::from(resources[1].field1),
                     Value::from(resources[1].field2.clone()),
                 ],
                 array![Value;
-                    Value::from(resources[2].id),
                     Value::from(resources[2].field1),
                     Value::from(resources[2].field2.clone()),
                 ],

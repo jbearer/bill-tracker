@@ -61,6 +61,12 @@ pub trait Type: Clone + gql::OutputType {
     /// A predicate on collections of objects of this type.
     type PluralPredicate: PluralPredicate<Self>;
 
+    /// The representation of values of this type when creating a new object.
+    ///
+    /// For scalars, the input is just the value of the scalar itself. For resources, the input is
+    /// the ID of the referenced resource.
+    type Input: Scalar;
+
     /// Build an object of this type using a builder supplied by the backend.
     ///
     /// This is used to reconstruct an object from a backend-specific query result.
@@ -178,7 +184,7 @@ pub mod scalar {
     /// A primitive type in the relational GraphQL type system.
     #[sealed]
     pub trait Scalar:
-        Type<Predicate = Self::ScalarPredicate> + gql::InputType + gql::ScalarType
+        Type<Predicate = Self::ScalarPredicate, Input = Self> + gql::InputType + gql::ScalarType
     {
         /// Boolean predicates on this scalar type.
         ///
@@ -581,6 +587,8 @@ pub mod scalar {
                         type Predicate = Predicate;
                         type PluralPredicate = PluralPredicate;
 
+                        type Input = Self;
+
                         const NAME: &'static str = stringify!($t);
                         const PLURAL_NAME: &'static str = stringify!($t, s);
 
@@ -737,6 +745,8 @@ pub mod scalar {
         type Predicate = StringPredicate;
         type PluralPredicate = StringsPredicate;
 
+        type Input = Self;
+
         const NAME: &'static str = "String";
         const PLURAL_NAME: &'static str = "Strings";
 
@@ -772,7 +782,7 @@ pub mod resource {
     pub use model_derive::Resource;
 
     /// A complex type in the relational GraphQL type system.
-    pub trait Resource: Type<Predicate = Self::ResourcePredicate> {
+    pub trait Resource: Type<Predicate = Self::ResourcePredicate, Input = Id> {
         // When `generic_const_exprs` stables, these can be converted to associated constants and
         // the various `Array` types can be converted to constant sized arrays. This will
         // clean the interface up considerably. Unfortunately, for now, it is unstable to use an
@@ -782,6 +792,8 @@ pub mod resource {
         type NumFields: Length;
         /// The number of plural fields this resource has.
         type NumPluralFields: Length;
+        /// The number of input fields this resource has.
+        type NumInputFields: Length;
 
         /// The unique, sequentially increasing ID for this resource.
         type Id: Field<Resource = Self, Type = Id>;
@@ -792,6 +804,11 @@ pub mod resource {
         /// [`ResourcePredicate`](ResourcePredicate) has the more expressive trait bound
         /// [`ResourcePredicate`] instead of the generic [`Predicate`].
         type ResourcePredicate: ResourcePredicate<Self>;
+
+        /// The input used to specify a new object of this type.
+        ///
+        /// The input contains input values for each of the input fields of this resource.
+        type ResourceInput: ResourceInput<Self>;
 
         /// Build a resource using a builder supplied by the backend.
         ///
@@ -852,6 +869,11 @@ pub mod resource {
             visitor: &mut V,
         ) -> Array<V::Output, Self::NumPluralFields>;
 
+        /// Describe the input fields of this resource.
+        fn describe_input_fields<V: InputFieldVisitor<Self>>(
+            visitor: &mut V,
+        ) -> Array<V::Output, Self::NumInputFields>;
+
         /// The names of this resource's singular fields.
         fn field_names() -> Array<&'static str, Self::NumFields> {
             struct Visitor;
@@ -865,6 +887,21 @@ pub mod resource {
             }
 
             Self::describe_fields(&mut Visitor)
+        }
+
+        /// The names of this resource's input fields.
+        fn input_field_names() -> Array<&'static str, Self::NumInputFields> {
+            struct Visitor;
+
+            impl<T: Resource> InputFieldVisitor<T> for Visitor {
+                type Output = &'static str;
+
+                fn visit<F: InputField<Resource = T>>(&mut self) -> Self::Output {
+                    F::NAME
+                }
+            }
+
+            Self::describe_input_fields(&mut Visitor)
         }
     }
 
@@ -895,6 +932,16 @@ pub mod resource {
         /// return [`None`], since the field has been taken.
         fn take<F: Field<Resource = T>>(&mut self) -> Option<<F::Type as Type>::Predicate> {
             F::take_predicate(self)
+        }
+    }
+
+    /// The input used to specify a new object of type `T`.
+    ///
+    /// The input contains input values for each of the input fields of `T`.
+    pub trait ResourceInput<T: Resource<ResourceInput = Self>> {
+        /// Get the input value for a field from the overall resource input.
+        fn get<F: InputField<Resource = T>>(&self) -> &<F::Type as Type>::Input {
+            F::get_input(self)
         }
     }
 
@@ -935,6 +982,14 @@ pub mod resource {
         fn is_id() -> bool {
             TypeId::of::<Self>() == TypeId::of::<<Self::Resource as Resource>::Id>()
         }
+    }
+
+    /// A field which must be present when a new object is created.
+    pub trait InputField: Field {
+        /// Get the input value for this field from the overall input for its resource.
+        fn get_input(
+            input: &<Self::Resource as Resource>::ResourceInput,
+        ) -> &<Self::Type as Type>::Input;
     }
 
     /// Metadata about a plural field of a resource.
@@ -999,5 +1054,14 @@ pub mod resource {
 
         /// Tell the visitor about a field `F`.
         fn visit<F: PluralField<Resource = T>>(&mut self) -> Self::Output;
+    }
+
+    /// Visitor which allows a backend to visit the input fields of a [`Resource`].
+    pub trait InputFieldVisitor<T: Resource> {
+        /// An output summarizing the results of visiting `T`s input fields.
+        type Output;
+
+        /// Tell the visitor about a field `F`.
+        fn visit<F: InputField<Resource = T>>(&mut self) -> Self::Output;
     }
 }

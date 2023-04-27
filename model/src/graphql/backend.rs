@@ -70,10 +70,9 @@ pub trait DataSource {
     ) -> Result<Many<Self, T>, Self::Error>;
 
     /// Insert new items into the database.
-    async fn insert<I>(&mut self, resources: I) -> Result<(), Self::Error>
+    async fn insert<T: Resource, I>(&mut self, inputs: I) -> Result<(), Self::Error>
     where
-        I: IntoIterator + Send,
-        I::Item: Resource,
+        I: IntoIterator<Item = T::ResourceInput> + Send,
         I::IntoIter: Send;
 }
 

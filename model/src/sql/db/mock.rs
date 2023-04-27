@@ -4,8 +4,11 @@
 //! isolation from an actual database.
 #![cfg(any(test, feature = "mocks"))]
 
-use super::{Clause, ConstraintKind, SchemaColumn, SelectColumn, Value};
-use crate::{Array, Length};
+use super::{Clause, ConstraintKind, SchemaColumn, SelectColumn, Type, Value};
+use crate::{
+    typenum::{Sub1, B1},
+    Array, Length,
+};
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 use derive_more::From;
@@ -17,6 +20,7 @@ use snafu::Snafu;
 use std::borrow::Cow;
 use std::collections::hash_map::{Entry, HashMap};
 use std::fmt::Display;
+use std::ops::Sub;
 
 /// Errors returned by the in-memory database.
 #[derive(Debug, Snafu, From)]
@@ -42,27 +46,64 @@ struct Db {
 /// An in-memory table.
 #[derive(Debug)]
 struct Table {
-    schema: Vec<SchemaColumn<'static>>,
+    name: String,
+    serial_cols: Vec<SchemaColumn<'static>>,
+    explicit_cols: Vec<SchemaColumn<'static>>,
     rows: Vec<Row>,
 }
 
 impl Table {
-    fn new<N: Length>(schema: Array<SchemaColumn<'static>, N>) -> Self {
+    fn new<N: Length>(name: String, schema: Array<SchemaColumn<'static>, N>) -> Self {
+        // Separate the auto-incrementing columns from the columns that require explicit values.
+        let (serial_cols, explicit_cols) =
+            schema.into_iter().partition(|col| col.ty() == Type::Serial);
         Self {
-            schema: schema.to_vec(),
+            name,
+            serial_cols,
+            explicit_cols,
             rows: vec![],
         }
     }
 
-    fn append<N: Length>(&mut self, rows: impl IntoIterator<Item = Array<Value, N>>) {
-        assert_eq!(N::USIZE, self.schema.len());
-        for row in rows {
-            self.rows.push(Row::new(
-                row.into_iter()
-                    .zip(&self.schema)
-                    .map(|(val, col)| (col.name().to_string(), val)),
-            ));
+    fn append<N: Length>(
+        &mut self,
+        rows: impl IntoIterator<Item = Array<Value, N>>,
+    ) -> Result<(), Error> {
+        // We require a value for all columns except the serial columns (which are auto-incremented).
+        if N::USIZE != self.explicit_cols.len() {
+            return Err(Error::from(format!(
+                "incorrect width for table {} (found {}, expected {})",
+                self.name,
+                self.explicit_cols.len(),
+                N::USIZE
+            )));
         }
+
+        for row in rows {
+            // Auto-increment the serial columns.
+            let auto_values = self
+                .serial_cols
+                .iter()
+                .map(|col| (col.name().to_string(), (self.rows.len() as i32 + 1).into()));
+
+            // Take the rest of the values from the input.
+            let values = row
+                .into_iter()
+                .zip(&self.explicit_cols)
+                .map(|(val, col)| (col.name().to_string(), val));
+
+            self.rows.push(Row::new(auto_values.chain(values)));
+        }
+
+        Ok(())
+    }
+
+    fn schema(&self) -> Vec<SchemaColumn<'static>> {
+        self.serial_cols
+            .iter()
+            .chain(&self.explicit_cols)
+            .cloned()
+            .collect()
     }
 }
 
@@ -87,22 +128,33 @@ impl Connection {
         table: impl Into<String>,
         columns: Array<SchemaColumn<'static>, N>,
     ) -> Result<(), Error> {
-        self.create_table_with_rows(table, columns, []).await
+        let mut db = self.0.write().await;
+        let table = table.into();
+        if let Entry::Vacant(e) = db.tables.entry(table.clone()) {
+            e.insert(Table::new(table, columns));
+        }
+        Ok(())
     }
 
     /// Create a table with the given column names and row values.
-    pub async fn create_table_with_rows<N: Length>(
+    ///
+    /// It is assumed that the schema contains exactly 1 auto-increment ID column, so the values
+    /// specified for each row must be 1 less than the size of the schema.
+    pub async fn create_table_with_rows<N: Length + Sub<B1>>(
         &self,
         table: impl Into<String>,
         columns: Array<SchemaColumn<'static>, N>,
-        rows: impl IntoIterator<Item = Array<Value, N>>,
-    ) -> Result<(), Error> {
+        rows: impl IntoIterator<Item = Array<Value, Sub1<N>>>,
+    ) -> Result<(), Error>
+    where
+        Sub1<N>: Length,
+    {
+        let table = table.into();
+        self.create_table(&table, columns).await?;
+
         let mut db = self.0.write().await;
-        if let Entry::Vacant(e) = db.tables.entry(table.into()) {
-            let table = e.insert(Table::new(columns));
-            table.append(rows);
-        }
-        Ok(())
+        let table = db.tables.get_mut(&table).unwrap();
+        table.append(rows)
     }
 
     /// The schema of this database.
@@ -115,7 +167,7 @@ impl Connection {
             .await
             .tables
             .iter()
-            .map(|(name, table)| (name.clone(), table.schema.clone()))
+            .map(|(name, table)| (name.clone(), table.schema()))
             .collect()
     }
 }
@@ -235,21 +287,13 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
             .tables
             .get_mut(&*self.table)
             .ok_or_else(|| Error::from(format!("no such table {}", self.table)))?;
-        if table.schema.len() != N::USIZE {
-            return Err(Error::from(format!(
-                "incorrect width for table {} (found {}, expected {})",
-                self.table,
-                table.schema.len(),
-                N::USIZE
-            )));
-        }
 
         // A permutation of column indices mapping positions in the input rows to the positions of
         // the corresponding rows in the table schema.
         let mut column_permutation = Array::<usize, N>::default();
         for (i, name) in self.columns.into_iter().enumerate() {
             let col = table
-                .schema
+                .explicit_cols
                 .iter()
                 .position(|col| col.name() == name)
                 .ok_or_else(|| Error::from(format!("table {} has no column {name}", self.table)))?;
@@ -260,8 +304,7 @@ impl<'a, N: Length> super::Insert<N> for Insert<'a, N> {
             row.permute(&column_permutation);
         }
 
-        table.append(self.rows);
-        Ok(())
+        table.append(self.rows)
     }
 }
 
