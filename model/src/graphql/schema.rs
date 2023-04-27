@@ -119,3 +119,30 @@ pub struct Query;
 pub fn generate() -> Schema<Query, EmptyMutation, EmptySubscription> {
     Schema::build(Query, EmptyMutation, EmptySubscription).finish()
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::sql::{db::mock::Connection, SqlDataSource};
+
+    #[async_std::test]
+    async fn test_register_schema() {
+        let mut db = SqlDataSource::from(Connection::create());
+        Query::register(&mut db).await.unwrap();
+
+        // As a smoketest, make sure all the resources were registered.
+        let mut resources = db.inner().schema().await.into_keys().collect::<Vec<_>>();
+        resources.sort();
+        assert_eq!(
+            resources,
+            [
+                "bills",
+                "districts",
+                "issues",
+                "legislators",
+                "parties",
+                "states",
+            ]
+        );
+    }
+}

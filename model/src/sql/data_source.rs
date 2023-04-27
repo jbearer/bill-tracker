@@ -18,6 +18,18 @@ pub type PostgresDataSource = SqlDataSource<db::postgres::Connection>;
 #[derive(Clone, Debug, From)]
 pub struct SqlDataSource<Db>(Db);
 
+impl<Db: db::Connection> SqlDataSource<Db> {
+    /// The underlying connection to the database.
+    pub fn inner(&self) -> &Db {
+        &self.0
+    }
+
+    /// Unwrap this data source to get at the underlying connection.
+    pub fn into_inner(self) -> Db {
+        self.0
+    }
+}
+
 #[async_trait]
 impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSource<Db> {
     type Connection<T: Type, C: ObjectType, E: ObjectType> = SqlConnection<T, C, E>;

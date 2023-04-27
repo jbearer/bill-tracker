@@ -20,6 +20,8 @@ mod helpers;
 ///   arguments and loads the appropriate page of results on demand.
 /// * A unit struct for each field of the original struct, containing metadata about the field via
 ///   the `Field` or `PluralField` trait. These are generated in a nested module called `fields`.
+/// * An input type for the struct, which contains only the struct's input fields, with references
+///   to other resources replaced by the resource ID.
 /// * A _has_ predicate, which is a GraphQL input type allowing the client to apply a filter to any
 ///   of the struct's fields.
 /// * A _singular predicate_ used to filter items of this resource. The predicate is an enum with
@@ -184,6 +186,16 @@ pub fn graphql_resource(input: TokenStream) -> TokenStream {
 /// Each entrypoint defined this way will generate a GraphQL field which takes the plural resource
 /// inputs (a `where` predicate and Relay paging inputs) and produces a paginated connection of
 /// items of the resource type matching the `where` clause.
+///
+/// The macro also generates a `register` associated function on the query type, with the signature:
+///
+/// ```ignore
+/// pub async fn register<D: DataSource>(db: &mut D) -> Result<(), D::Error>;
+/// ```
+///
+/// This function will traverse the list of resources in the query object and register all of the
+/// reachable resource types in the database, effectively creating a relational schema for the
+/// ontology defined by this object.
 ///
 /// # Examples
 ///
