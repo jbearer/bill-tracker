@@ -4,7 +4,10 @@
 //! isolation from an actual database.
 #![cfg(any(test, feature = "mocks"))]
 
-use super::{Clause, ConstraintKind, SchemaColumn, SelectColumn, Type, Value};
+use super::{
+    Clause, Column, ConstraintKind, JoinClause, SchemaColumn, SelectColumn, Type, Value,
+    WhereClause,
+};
 use crate::{
     typenum::{Sub1, B1},
     Array, Length,
@@ -16,10 +19,12 @@ use futures::{
     stream::{self, BoxStream},
     StreamExt, TryFutureExt,
 };
+use itertools::Itertools;
 use snafu::Snafu;
 use std::borrow::Cow;
 use std::collections::hash_map::{Entry, HashMap};
 use std::fmt::Display;
+use std::iter;
 use std::ops::Sub;
 
 /// Errors returned by the in-memory database.
@@ -27,6 +32,12 @@ use std::ops::Sub;
 #[snafu(display("mock DB error: {}", message))]
 pub struct Error {
     message: String,
+}
+
+impl From<&str> for Error {
+    fn from(s: &str) -> Self {
+        s.to_string().into()
+    }
 }
 
 impl super::Error for Error {
@@ -81,29 +92,20 @@ impl Table {
 
         for row in rows {
             // Auto-increment the serial columns.
-            let auto_values = self
-                .serial_cols
-                .iter()
-                .map(|col| (col.name().to_string(), (self.rows.len() as i32 + 1).into()));
+            let auto_values =
+                iter::repeat((self.rows.len() as i32 + 1).into()).take(self.serial_cols.len());
 
             // Take the rest of the values from the input.
-            let values = row
-                .into_iter()
-                .zip(&self.explicit_cols)
-                .map(|(val, col)| (col.name().to_string(), val));
+            let columns = auto_values.chain(row);
 
-            self.rows.push(Row::new(auto_values.chain(values)));
+            self.rows.push(Row::new(columns.collect()));
         }
 
         Ok(())
     }
 
-    fn schema(&self) -> Vec<SchemaColumn<'static>> {
-        self.serial_cols
-            .iter()
-            .chain(&self.explicit_cols)
-            .cloned()
-            .collect()
+    fn schema(&self) -> impl '_ + Iterator<Item = SchemaColumn<'static>> {
+        self.serial_cols.iter().chain(&self.explicit_cols).cloned()
     }
 }
 
@@ -167,7 +169,7 @@ impl Connection {
             .await
             .tables
             .iter()
-            .map(|(name, table)| (name.clone(), table.schema()))
+            .map(|(name, table)| (name.clone(), table.schema().collect()))
             .collect()
     }
 }
@@ -197,13 +199,15 @@ impl super::Connection for Connection {
 
     fn select<'a>(
         &'a self,
-        _select: &'a [SelectColumn<'a>],
+        select: &'a [SelectColumn<'a>],
         table: impl Into<Cow<'a, str>> + Send,
     ) -> Self::Select<'a> {
         Select {
             db: &self.0,
             table: table.into(),
-            clauses: vec![],
+            columns: select,
+            joins: vec![],
+            filters: vec![],
         }
     }
 
@@ -228,16 +232,21 @@ impl super::Connection for Connection {
 pub struct Select<'a> {
     db: &'a RwLock<Db>,
     table: Cow<'a, str>,
-    clauses: Vec<Clause>,
+    columns: &'a [SelectColumn<'a>],
+    joins: Vec<JoinClause<'a>>,
+    filters: Vec<WhereClause<'a>>,
 }
 
-impl<'a> super::Select for Select<'a> {
+impl<'a> super::Select<'a> for Select<'a> {
     type Error = Error;
     type Row = Row;
     type Stream = BoxStream<'a, Result<Self::Row, Self::Error>>;
 
-    fn clause(mut self, clause: Clause) -> Self {
-        self.clauses.push(clause);
+    fn clause(mut self, clause: Clause<'a>) -> Self {
+        match clause {
+            Clause::Join(join) => self.joins.push(join),
+            Clause::Where(filter) => self.filters.push(filter),
+        }
         self
     }
 
@@ -248,13 +257,54 @@ impl<'a> super::Select for Select<'a> {
                 .tables
                 .get(&*self.table)
                 .ok_or_else(|| Error::from(format!("no such table {}", self.table)))?;
-            let rows = table
-                .rows
-                .clone()
+
+            tracing::info!("SELECT {:?} FROM {}", self.columns, self.table);
+            let mut rows = table.rows.clone();
+            let mut schema = table
+                .schema()
+                .map(|col| Column::qualified(self.table.clone(), col.name()))
+                .collect::<Vec<_>>();
+            for JoinClause {
+                table,
+                lhs,
+                op,
+                rhs,
+            } in self.joins
+            {
+                tracing::info!("JOIN {table} ON {lhs} {op} {rhs}");
+                let join_table = db
+                    .tables
+                    .get(&*table)
+                    .ok_or_else(|| Error::from(format!("no such table {}", table)))?;
+                schema.extend(
+                    join_table
+                        .schema()
+                        .map(|col| Column::qualified(table.clone(), col.name())),
+                );
+                rows = rows
+                    .into_iter()
+                    .cartesian_product(join_table.rows.clone())
+                    .filter_map(|(l, r)| l.join(r, &schema, &lhs, &op, &rhs).transpose())
+                    .try_collect()?;
+            }
+            for WhereClause { column, op, param } in self.filters {
+                tracing::info!("WHERE {column} {op} {param}");
+                rows = rows
+                    .into_iter()
+                    .filter_map(|row| match row.test(&schema, &column, &op, &param) {
+                        Ok(true) => Some(Ok(row)),
+                        Ok(false) => None,
+                        Err(err) => Some(Err(err)),
+                    })
+                    .try_collect()?;
+            }
+
+            let rows = rows
                 .into_iter()
-                .filter(move |row| self.clauses.iter().all(|clause| row.test(clause)))
-                .map(Ok);
-            Ok(stream::iter(rows))
+                .map(|row| row.select(&schema, self.columns))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            Ok(stream::iter(rows).map(Ok))
         }
         .try_flatten_stream()
         .boxed()
@@ -359,7 +409,7 @@ impl super::AlterTable for AlterTable {
 /// A row in an in-memory table.
 #[derive(Clone, Debug, Default)]
 pub struct Row {
-    columns: HashMap<String, Value>,
+    columns: Vec<Value>,
 }
 
 macro_rules! test_int_val {
@@ -384,37 +434,94 @@ macro_rules! test_int_val {
 
 impl Row {
     /// Create a row with the given entries.
-    fn new(entries: impl IntoIterator<Item = (String, Value)>) -> Self {
-        Self {
-            columns: entries.into_iter().collect(),
-        }
+    fn new(columns: Vec<Value>) -> Self {
+        Self { columns }
     }
 
-    /// Test if this row should be included based on the given [`Clause`].
-    fn test(&self, clause: &Clause) -> bool {
-        match clause {
-            Clause::Where { column, op, param } => {
-                if let Some(col) = self.columns.get(column) {
-                    match op.as_str() {
-                        "=" => col == param,
-                        "!=" => col != param,
-                        int_op => test_int_val!(col, int_op, param),
-                    }
-                } else {
-                    true
+    /// Test if this row should be included based on the given condition..
+    fn test(
+        &self,
+        schema: &[Column],
+        column: &Column,
+        op: &str,
+        param: &Value,
+    ) -> Result<bool, Error> {
+        Ok(Self::cmp(self.get(schema, column)?, op, param))
+    }
+
+    /// Join this row with another row if the joined pair matches a condition.
+    ///
+    /// `schema` should be the concatenated schemas of `self` and `other`.
+    ///
+    /// If the joined pair matches, a new row will be returned which consists of all of the columns
+    /// of this row, in order, followed by all of the columns of the other row, in order.
+    fn join(
+        mut self,
+        other: Row,
+        schema: &[Column],
+        lhs: &Column,
+        op: &str,
+        rhs: &Column,
+    ) -> Result<Option<Self>, Error> {
+        self.columns.extend(other.columns);
+        Ok(
+            if Self::cmp(self.get(schema, lhs)?, op, self.get(schema, rhs)?) {
+                Some(self)
+            } else {
+                None
+            },
+        )
+    }
+
+    /// Create a new row with just the specified columns, in the specified order.
+    fn select(self, schema: &[Column], columns: &[SelectColumn]) -> Result<Self, Error> {
+        let mut selected = vec![];
+        for col in columns {
+            match col {
+                SelectColumn::All => return Ok(self),
+                SelectColumn::Column(col) => {
+                    selected.push(self.get(schema, col)?.clone());
                 }
             }
         }
+        Ok(Self { columns: selected })
+    }
+
+    /// Compare to values.
+    fn cmp(lhs: &Value, op: &str, rhs: &Value) -> bool {
+        match op {
+            "=" => lhs == rhs,
+            "!=" => lhs != rhs,
+            int_op => test_int_val!(lhs, int_op, rhs),
+        }
+    }
+
+    /// Get the value of the named column.
+    fn get(&self, schema: &[Column], col: &Column) -> Result<&Value, Error> {
+        let index = schema
+            .iter()
+            .position(|schema_col| {
+                if col.table.is_some() {
+                    // Every column in the schema is qualified, so if `col` is also qualified, we
+                    // want an exact match.
+                    col == schema_col
+                } else {
+                    // Otherwise find the first column whose name matches `col`.
+                    col.name == schema_col.name
+                }
+            })
+            .ok_or_else(|| Error::from(format!("no such column {col}")))?;
+        Ok(&self.columns[index])
     }
 }
 
 impl super::Row for Row {
     type Error = Error;
 
-    fn column(&self, column: &str) -> Result<Value, Self::Error> {
+    fn column(&self, column: usize) -> Result<Value, Self::Error> {
         self.columns
             .get(column)
             .cloned()
-            .ok_or_else(|| format!("no such column {column}").into())
+            .ok_or_else(|| format!("column index {column} out of range").into())
     }
 }

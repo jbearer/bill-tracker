@@ -2,7 +2,10 @@
 //!
 //! This instantiation is built on [`async-postgres`].
 
-use super::{Clause, ConstraintKind, SchemaColumn, SelectColumn, Value};
+use super::{
+    escape_ident, Clause, ConstraintKind, JoinClause, SchemaColumn, SelectColumn, Value,
+    WhereClause,
+};
 use crate::{Array, Length};
 use async_std::task::spawn;
 use async_trait::async_trait;
@@ -133,7 +136,8 @@ struct SelectInner<'a> {
     conn: &'a Connection,
     select: &'a [SelectColumn<'a>],
     table: Cow<'a, str>,
-    conditions: Vec<String>,
+    joins: Vec<String>,
+    filters: Vec<String>,
     params: Vec<Value>,
 }
 
@@ -143,13 +147,14 @@ impl<'a> Select<'a> {
             conn,
             select,
             table,
-            conditions: Default::default(),
+            joins: Default::default(),
+            filters: Default::default(),
             params: Default::default(),
         }))
     }
 }
 
-impl<'a> super::Select for Select<'a> {
+impl<'a> super::Select<'a> for Select<'a> {
     type Error = Error;
     type Row = Row;
     type Stream = BoxStream<'a, Result<Self::Row, Self::Error>>;
@@ -157,12 +162,25 @@ impl<'a> super::Select for Select<'a> {
     fn clause(self, clause: Clause) -> Self {
         let Ok(mut query) = self.0 else { return self; };
         match clause {
-            Clause::Where { column, op, param } => {
+            Clause::Where(WhereClause { column, op, param }) => {
                 query.params.push(param);
-                query.conditions.push(format!(
-                    "{} {op} ${}",
-                    escape_ident(column),
+                query.filters.push(format!(
+                    "WHERE {} {op} ${}",
+                    column.escape(),
                     query.params.len()
+                ));
+            }
+            Clause::Join(JoinClause {
+                table,
+                lhs,
+                op,
+                rhs,
+            }) => {
+                query.joins.push(format!(
+                    "JOIN {} ON {} {op} {}",
+                    escape_ident(table),
+                    lhs.escape(),
+                    rhs.escape()
                 ));
             }
         }
@@ -183,21 +201,18 @@ impl<'a> super::Select for Select<'a> {
                 .select
                 .iter()
                 .map(|col| match col {
-                    SelectColumn::Col(name) => escape_ident(name),
+                    SelectColumn::Column(col) => col.escape(),
                     SelectColumn::All => "*".to_string(),
                 })
                 .join(", ");
             let table = escape_ident(query.table);
 
-            // Format the `WHERE` clause if there is one.
-            let clauses = if query.conditions.is_empty() {
-                String::new()
-            } else {
-                format!("WHERE {}", query.conditions.into_iter().join(" AND "))
-            };
-
             // Construct the SQL statement.
-            let statement = format!("SELECT {columns} FROM {table} {clauses}");
+            let statement = format!(
+                "SELECT {columns} FROM {table} {} {}",
+                query.joins.join(" "),
+                query.filters.join(" ")
+            );
 
             // Run the query.
             let rows = query.conn.query(statement.as_str(), &query.params).await?;
@@ -403,7 +418,7 @@ impl<'a> super::AlterTable for AlterTable<'a> {
 impl super::Row for Row {
     type Error = Error;
 
-    fn column(&self, column: &str) -> Result<Value, Self::Error> {
+    fn column(&self, column: usize) -> Result<Value, Self::Error> {
         Ok(self.try_get(column)?)
     }
 }
@@ -481,11 +496,6 @@ fn format_constraint(table: impl AsRef<str>, kind: ConstraintKind, cols: &[Strin
             )
         }
     }
-}
-
-/// Escape an identifier (table name, column name, etc.) for inclusion in a PostgreSQL query.
-fn escape_ident(s: impl AsRef<str>) -> String {
-    format!("\"{}\"", s.as_ref().replace('"', "\"\""))
 }
 
 #[cfg(test)]
@@ -649,26 +659,25 @@ mod test {
         assert_eq!(page, &simples[1..]);
 
         // Insert an object with a relation.
-        conn.insert::<Reference, _>([reference::ReferenceInput { simple: 1 }])
+        conn.insert::<Reference, _>([reference::ReferenceInput { simple: 2 }])
             .await
             .unwrap();
 
         // Query it back, filling in the relationship.
-        // TODO enable this once joins are implemented in queries.
-        // let results = conn.query::<Reference>(None).await.unwrap();
-        // let page = conn
-        //     .load_page(&results, Default::default())
-        //     .await
-        //     .unwrap()
-        //     .into_iter()
-        //     .map(|edge| edge.node)
-        //     .collect::<Vec<_>>();
-        // assert_eq!(
-        //     page,
-        //     [Reference {
-        //         id: 0,
-        //         simple: simples[1].clone()
-        //     }]
-        // );
+        let results = conn.query::<Reference>(None).await.unwrap();
+        let page = conn
+            .load_page(&results, Default::default())
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|edge| edge.node)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            page,
+            [Reference {
+                id: 1,
+                simple: simples[1].clone()
+            }]
+        );
     }
 }

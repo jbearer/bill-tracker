@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use derive_more::{Display, From, TryInto};
 use futures::{Stream, StreamExt, TryStreamExt};
 use std::borrow::Cow;
-use std::fmt::Display;
+use std::fmt::{self, Display, Formatter};
 
 pub mod mock;
 pub mod postgres;
@@ -31,9 +31,9 @@ pub trait Error: Sized + Send + std::error::Error {
 /// A column in a list of columns selected from a query.
 #[derive(Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SelectColumn<'a> {
-    /// A named column
+    /// A single named column.
     #[display(fmt = "{}", _0)]
-    Col(Cow<'a, str>),
+    Column(Column<'a>),
     /// Select all columns.
     #[display(fmt = "*")]
     All,
@@ -95,7 +95,7 @@ pub trait Connection {
         Self: 'a;
 
     /// A `SELECT` query which can be executed against the database.
-    type Select<'a>: Select<Error = Self::Error>
+    type Select<'a>: Select<'a, Error = Self::Error>
     where
         Self: 'a;
 
@@ -165,19 +165,25 @@ pub enum Type {
 }
 
 /// A primitive value supported by a SQL database.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, From, TryInto)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, Hash, From, TryInto)]
 pub enum Value {
     /// A text string.
+    #[display(fmt = "{}", _0)]
     Text(String),
     /// A 4-byte signed integer.
+    #[display(fmt = "{}", _0)]
     Int4(i32),
     /// An 8-byte signed integer.
+    #[display(fmt = "{}", _0)]
     Int8(i64),
     /// A 4-byte unsigned integer.
+    #[display(fmt = "{}", _0)]
     UInt4(u32),
     /// An 8-byte unsigned integer.
+    #[display(fmt = "{}", _0)]
     UInt8(u64),
     /// An auto-incrementing integer.
+    #[display(fmt = "{}", _0)]
     #[from(ignore)]
     Serial(u32),
 }
@@ -201,17 +207,98 @@ impl From<&str> for Value {
     }
 }
 
+/// An identifier of a column in a SQL query.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Column<'a> {
+    table: Option<Cow<'a, str>>,
+    name: Cow<'a, str>,
+}
+
+impl<'a> Column<'a> {
+    /// A named column.
+    pub fn named(name: Cow<'a, str>) -> Self {
+        Self { name, table: None }
+    }
+
+    /// A named column, qualified by a table name.
+    pub fn qualified(table: Cow<'a, str>, name: Cow<'a, str>) -> Self {
+        Self {
+            table: Some(table),
+            name,
+        }
+    }
+
+    /// Escape this column name for interpolation into a SQL query.
+    pub fn escape(&self) -> String {
+        match &self.table {
+            Some(table) => format!("{}.{}", escape_ident(table), escape_ident(&self.name)),
+            None => escape_ident(&self.name),
+        }
+    }
+}
+
+impl<'a> Display for Column<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if let Some(table) = &self.table {
+            write!(f, "{table}.")?;
+        }
+        write!(f, "{}", self.name)
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for Column<'a> {
+    fn from(name: Cow<'a, str>) -> Self {
+        Self::named(name)
+    }
+}
+
+impl<'a> From<&'a str> for Column<'a> {
+    fn from(name: &'a str) -> Self {
+        Self::named(name.into())
+    }
+}
+
+impl<'a> From<String> for Column<'a> {
+    fn from(name: String) -> Self {
+        Self::named(name.into())
+    }
+}
+
 /// A clause modifying a SQL statement.
-pub enum Clause {
+#[derive(Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, Hash, From, TryInto)]
+pub enum Clause<'a> {
     /// A `WHERE` clause.
-    Where {
-        /// The column to filter.
-        column: String,
-        /// The operation used to filter values of `column`.
-        op: String,
-        /// Parameter to `op`.
-        param: Value,
-    },
+    #[display(fmt = "{}", _0)]
+    Where(WhereClause<'a>),
+    /// A `JOIN` clause.
+    #[display(fmt = "{}", _0)]
+    Join(JoinClause<'a>),
+}
+
+/// A `WHERE` clause.
+#[derive(Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display(fmt = "WHERE {column} {op} {param}")]
+pub struct WhereClause<'a> {
+    /// The column to filter.
+    pub column: Column<'a>,
+    /// The operation used to filter values of `column`.
+    pub op: Cow<'a, str>,
+    /// Parameter to `op`.
+    pub param: Value,
+}
+
+/// A `JOIN` clause.
+#[derive(Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display(fmt = "JOIN {table} ON {lhs} {op} {rhs}")]
+pub struct JoinClause<'a> {
+    /// The table to join with.
+    pub table: Cow<'a, str>,
+    /// The LHS in the join condition.
+    pub lhs: Column<'a>,
+    /// The operation in the join condition.
+    pub op: Cow<'a, str>,
+    /// The RHS in the join condition.
+    pub rhs: Column<'a>,
 }
 
 /// A constraint on a set of columns in a table.
@@ -317,7 +404,7 @@ impl<T: AlterTable> AlterTableExt for T {
 }
 
 /// A `SELECT` query which can be executed against the database.
-pub trait Select: Send {
+pub trait Select<'a>: Send {
     /// Errors returned by this query.
     type Error: Error;
     /// Rows returned by this query.
@@ -326,7 +413,7 @@ pub trait Select: Send {
     type Stream: Stream<Item = Result<Self::Row, Self::Error>> + Unpin + Send;
 
     /// Add a clause to the query.
-    fn clause(self, clause: Clause) -> Self;
+    fn clause(self, clause: Clause<'a>) -> Self;
 
     /// Run the query and get a stream of results.
     fn stream(self) -> Self::Stream;
@@ -334,9 +421,29 @@ pub trait Select: Send {
 
 /// An extension trait for [`Select`] that provides some higher-level functions.
 #[async_trait]
-pub trait SelectExt: Select {
+pub trait SelectExt<'a>: Select<'a> {
     /// Add a `WHERE` clause to the query.
-    fn filter(self, column: impl Into<String>, op: impl Into<String>, param: Value) -> Self;
+    fn filter(
+        self,
+        column: impl Into<Column<'a>>,
+        op: impl Into<Cow<'a, str>>,
+        param: Value,
+    ) -> Self;
+
+    /// Add a `JOIN` clause to the query.
+    fn join(
+        self,
+        table: impl Into<Cow<'a, str>>,
+        lhs: impl Into<Column<'a>>,
+        op: impl Into<Cow<'a, str>>,
+        rhs: impl Into<Column<'a>>,
+    ) -> Self;
+
+    /// Add multiple clauses to the query.
+    fn clauses<I>(self, clauses: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<Clause<'a>>;
 
     /// Run a query which is expected to return a single row.
     ///
@@ -357,13 +464,44 @@ pub trait SelectExt: Select {
 }
 
 #[async_trait]
-impl<T: Select> SelectExt for T {
-    fn filter(self, column: impl Into<String>, op: impl Into<String>, param: Value) -> Self {
-        self.clause(Clause::Where {
+impl<'a, T: Select<'a>> SelectExt<'a> for T {
+    fn filter(
+        self,
+        column: impl Into<Column<'a>>,
+        op: impl Into<Cow<'a, str>>,
+        param: Value,
+    ) -> Self {
+        self.clause(Clause::Where(WhereClause {
             column: column.into(),
             op: op.into(),
             param,
-        })
+        }))
+    }
+
+    fn join(
+        self,
+        table: impl Into<Cow<'a, str>>,
+        lhs: impl Into<Column<'a>>,
+        op: impl Into<Cow<'a, str>>,
+        rhs: impl Into<Column<'a>>,
+    ) -> Self {
+        self.clause(Clause::Join(JoinClause {
+            table: table.into(),
+            lhs: lhs.into(),
+            op: op.into(),
+            rhs: rhs.into(),
+        }))
+    }
+
+    fn clauses<I>(mut self, clauses: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<Clause<'a>>,
+    {
+        for clause in clauses {
+            self = self.clause(clause.into());
+        }
+        self
     }
 
     async fn opt(self) -> Result<Option<Self::Row>, Self::Error> {
@@ -415,8 +553,16 @@ pub trait Row: Sized + Send {
 
     /// Get the value of `column` in this row.
     ///
+    /// `column` is an index corresponding to the order in which columns were requested in the
+    /// `SELECT` statement.
+    ///
     /// # Errors
     ///
     /// This method will fail if the specified column does not exist.
-    fn column(&self, column: &str) -> Result<Value, Self::Error>;
+    fn column(&self, column: usize) -> Result<Value, Self::Error>;
+}
+
+/// Escape an identifier (table name, column name, etc.) for inclusion in a SQL query.
+pub fn escape_ident(s: impl AsRef<str>) -> String {
+    format!("\"{}\"", s.as_ref().replace('"', "\"\""))
 }

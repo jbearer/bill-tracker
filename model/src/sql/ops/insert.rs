@@ -40,12 +40,12 @@ fn build_row<T: gql::Resource>(input: T::ResourceInput) -> Array<Value, T::NumIn
 mod test {
     use super::*;
     use crate::{
-        array,
+        array, init_logging,
         sql::{
             db::{mock, SchemaColumn, Type},
             ops,
         },
-        typenum::U3,
+        typenum::{U2, U3},
     };
     use gql::{Id, Resource};
 
@@ -59,6 +59,8 @@ mod test {
 
     #[async_std::test]
     async fn test_round_trip_no_relations() {
+        init_logging();
+
         let db = mock::Connection::create();
         db.create_table::<U3>(
             "test_resources",
@@ -111,6 +113,68 @@ mod test {
                     field2: "baz".into(),
                 },
             ]
+        );
+    }
+
+    /// A resource that owns another resource (a one-one or one-many relationship).
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Owner {
+        id: Id,
+        owned: TestResource,
+    }
+
+    #[async_std::test]
+    async fn test_insert_owner() {
+        init_logging();
+
+        let db = mock::Connection::create();
+        db.create_table::<U3>(
+            "test_resources",
+            array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("field1", Type::Int4),
+                SchemaColumn::new("field2", Type::Text),
+            ],
+        )
+        .await
+        .unwrap();
+        db.create_table::<U2>(
+            "owners",
+            array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("owned", Type::Int4),
+            ],
+        )
+        .await
+        .unwrap();
+
+        // First we have to insert something to own.
+        ops::insert::execute::<_, TestResource>(
+            &db,
+            [test_resource::TestResourceInput {
+                field1: 0,
+                field2: "foo".into(),
+            }],
+        )
+        .await
+        .unwrap();
+
+        // Now insert something that owns the first resource.
+        ops::insert::execute::<_, Owner>(&db, [owner::OwnerInput { owned: 1 }])
+            .await
+            .unwrap();
+
+        // Read it back.
+        assert_eq!(
+            ops::select::execute::<_, Owner>(&db, None).await.unwrap(),
+            [Owner {
+                id: 1,
+                owned: TestResource {
+                    id: 1,
+                    field1: 0,
+                    field2: "foo".into()
+                }
+            }]
         );
     }
 }

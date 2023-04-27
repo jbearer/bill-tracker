@@ -1,10 +1,13 @@
 //! Compilation of select from high-level GraphQL types into low-level SQL types.
 
 use super::{
-    super::db::{Connection, Row, Select, SelectColumn, SelectExt},
-    column_name, scalar_to_value, table_name, value_to_scalar, Error,
+    super::db::{Column, Connection, JoinClause, Row, Select, SelectColumn, SelectExt},
+    field_column, scalar_to_value, table_name, value_to_scalar, Error,
 };
 use crate::graphql::type_system::{self as gql, ResourcePredicate, ScalarPredicate, Type};
+use std::any::TypeId;
+use std::collections::HashMap;
+use std::marker::PhantomData;
 use take_mut::take;
 
 /// Search for items of resource `T` matching `filter`.
@@ -13,77 +16,199 @@ pub async fn execute<C: Connection, T: gql::Resource>(
     filter: Option<T::Predicate>,
 ) -> Result<Vec<T>, Error> {
     let table = table_name::<T>();
-    let mut query = conn.select(&[SelectColumn::All], &table);
+    let mut columns = ColumnMap::new::<T>();
+    let select = columns.columns.clone();
+    let mut query = conn.select(&select, &table);
     if let Some(predicate) = filter {
-        query = compile_predicate::<_, T>(query, predicate);
+        query = compile_predicate::<_, T>(&mut columns, query, predicate);
     }
+    query = query.clauses(std::mem::take(&mut columns.joins).into_values());
     let rows = query.many().await.map_err(Error::sql)?;
-    rows.iter().map(parse_row).collect()
+    rows.iter().map(|row| columns.parse_row(row)).collect()
+}
+
+/// A map from field types to the select column for that field.
+#[derive(Clone, Debug, Default)]
+struct ColumnMap {
+    index: HashMap<TypeId, usize>,
+    columns: Vec<SelectColumn<'static>>,
+    joins: HashMap<TypeId, JoinClause<'static>>,
+}
+
+impl ColumnMap {
+    /// A column map for `T` and all of its nested resources.
+    fn new<T: gql::Resource>() -> Self {
+        let mut columns = Self::default();
+        columns.add_resource::<T>();
+        columns
+    }
+
+    /// Add columns for `T` and all of its nested resources.
+    fn add_resource<T: gql::Resource>(&mut self) {
+        // For each field of `T`, get a list of field columns including the column for that field as
+        // well as columns for every field on the type of the column, if that type is a resource.
+        struct Visitor<'a>(&'a mut ColumnMap);
+
+        impl<'a, T: gql::Resource> gql::FieldVisitor<T> for Visitor<'a> {
+            type Output = ();
+
+            fn visit<F: gql::Field<Resource = T>>(&mut self) -> Self::Output {
+                // Check if the type of `F` is also a resource, and if so get its columns
+                // recursively.
+                struct Visitor<'a, F> {
+                    columns: &'a mut ColumnMap,
+                    _phantom: PhantomData<fn(&F)>,
+                }
+
+                impl<'a, F: gql::Field> gql::Visitor<F::Type> for Visitor<'a, F> {
+                    type Output = ();
+
+                    fn resource(self) -> Self::Output
+                    where
+                        F::Type: gql::Resource,
+                    {
+                        // Add a join clause to bring this table into the result set.
+                        self.columns.join::<F>();
+
+                        // Select the fields of the joined table.
+                        self.columns.add_resource::<F::Type>();
+                    }
+
+                    fn scalar(self) -> Self::Output
+                    where
+                        F::Type: gql::Scalar,
+                    {
+                        // Nothing to do if this column is a scalar; all there is is the column
+                        // itself, which we add below.
+                    }
+                }
+
+                F::Type::describe(Visitor::<F> {
+                    columns: self.0,
+                    _phantom: Default::default(),
+                });
+
+                // Add the column for this field.
+                self.0.push::<F>();
+            }
+        }
+
+        T::describe_fields(&mut Visitor(self));
+    }
+
+    /// Add a column for the field `F`.
+    fn push<F: gql::Field>(&mut self) {
+        self.index.insert(TypeId::of::<F>(), self.columns.len());
+        self.columns.push(SelectColumn::Column(field_column::<F>()));
+    }
+
+    /// Add a relation to the query without including its fields in the results.
+    fn join<F: gql::Field>(&mut self)
+    where
+        F::Type: gql::Resource,
+    {
+        // We join on the column referencing this resource in the original table (`F`) being equal
+        // to the primary key (`Id`) of this resource's table.
+        self.joins.insert(
+            TypeId::of::<F>(),
+            JoinClause {
+                table: table_name::<F::Type>().into(),
+                lhs: field_column::<F>(),
+                op: "=".into(),
+                rhs: field_column::<<F::Type as gql::Resource>::Id>(),
+            },
+        );
+    }
+
+    /// Convert a row of query results into a resource object.
+    fn parse_row<R: Row, T: gql::Resource>(&self, row: &R) -> Result<T, Error> {
+        T::build_resource(ResourceBuilder::new(self, row))
+    }
+
+    /// The index of the column representing field `F`.
+    fn index<F: gql::Field>(&self) -> usize {
+        self.index[&TypeId::of::<F>()]
+    }
+}
+
+impl AsRef<[SelectColumn<'static>]> for ColumnMap {
+    fn as_ref(&self) -> &[SelectColumn<'static>] {
+        &self.columns
+    }
 }
 
 /// Compiler to turn a scalar predicate into a condition which is part of a `WHERE` clause.
-struct ScalarWhereCondition<Q> {
-    column: String,
+struct ScalarWhereCondition<'a, Q> {
+    column: Column<'a>,
     query: Q,
 }
 
-impl<Q: Select, T: gql::Scalar> gql::ScalarPredicateCompiler<T> for ScalarWhereCondition<Q> {
+impl<'a, Q: Select<'a>, T: gql::Scalar> gql::ScalarPredicateCompiler<T>
+    for ScalarWhereCondition<'a, Q>
+{
     type Result = Q;
 
     fn cmp(self, op: T::Cmp, value: gql::Value<T>) -> Self::Result {
         match value {
             gql::Value::Lit(x) => {
                 self.query
-                    .filter(&self.column, op.to_string(), scalar_to_value(x))
+                    .filter(self.column, op.to_string(), scalar_to_value(x))
             }
-            gql::Value::Var(_) => unimplemented!(),
+            gql::Value::Var(_) => unimplemented!("pattern variables"),
         }
     }
 }
 
 /// Compiler to turn a predicate into a condition which is part of a `WHERE` clause.
-struct WhereCondition<Q, T: gql::Type> {
-    column: String,
+struct WhereCondition<'a, Q, F: gql::Field> {
+    columns: &'a mut ColumnMap,
     query: Q,
-    predicate: T::Predicate,
+    predicate: <F::Type as gql::Type>::Predicate,
 }
 
-impl<Q: Select, T: gql::Type> gql::Visitor<T> for WhereCondition<Q, T> {
+impl<'a, 'b, Q: Select<'a>, F: gql::Field> gql::Visitor<F::Type> for WhereCondition<'b, Q, F> {
     type Output = Q;
 
     fn resource(self) -> Q
     where
-        T: gql::Resource,
+        F::Type: gql::Resource,
     {
-        unimplemented!("relations")
+        // Join `T` into the query.
+        self.columns.join::<F>();
+        compile_predicate::<Q, F::Type>(self.columns, self.query, self.predicate)
     }
 
     fn scalar(self) -> Self::Output
     where
-        T: gql::Scalar,
+        F::Type: gql::Scalar,
     {
         self.predicate.compile(ScalarWhereCondition {
-            column: self.column,
+            column: field_column::<F>(),
             query: self.query,
         })
     }
 }
 
 /// Compile a predicate on a resource into a `WHERE` clause on a query of that table.
-fn compile_predicate<Q: Select, T: gql::Resource>(query: Q, pred: T::ResourcePredicate) -> Q {
-    struct Visitor<Q, T: gql::Resource> {
+fn compile_predicate<'a, 'b, Q: Select<'a>, T: gql::Resource>(
+    columns: &'b mut ColumnMap,
+    query: Q,
+    pred: T::ResourcePredicate,
+) -> Q {
+    struct Visitor<'a, Q, T: gql::Resource> {
+        columns: &'a mut ColumnMap,
         query: Q,
         pred: T::ResourcePredicate,
     }
 
-    impl<Q: Select, T: gql::Resource> gql::ResourceVisitor<T> for Visitor<Q, T> {
+    impl<'a, 'b, Q: Select<'a>, T: gql::Resource> gql::ResourceVisitor<T> for Visitor<'b, Q, T> {
         type Output = Q;
 
         fn visit_field_in_place<F: gql::Field<Resource = T>>(&mut self) {
             if let Some(sub_pred) = self.pred.take::<F>() {
                 take(&mut self.query, |query| {
-                    F::Type::describe(WhereCondition {
-                        column: column_name::<F>(),
+                    F::Type::describe(WhereCondition::<Q, F> {
+                        columns: self.columns,
                         query,
                         predicate: sub_pred,
                     })
@@ -100,37 +225,23 @@ fn compile_predicate<Q: Select, T: gql::Resource>(query: Q, pred: T::ResourcePre
         }
     }
 
-    T::describe_resource(Visitor { query, pred })
-}
-
-/// Builder to help an object reconstruct itself from query results.
-struct Builder<'a, R> {
-    column: String,
-    row: &'a R,
-}
-
-impl<'a, R: Row, T: 'a + gql::Type> gql::Builder<T> for Builder<'a, R> {
-    type Error = Error;
-    type Resource = ResourceBuilder<'a, R> where T: gql::Resource;
-
-    fn resource(self) -> Self::Resource
-    where
-        T: gql::Resource,
-    {
-        unimplemented!("joins")
-    }
-
-    fn scalar(self) -> Result<T, Error>
-    where
-        T: gql::Scalar,
-    {
-        value_to_scalar(self.row.column(&self.column).map_err(Error::sql)?)
-    }
+    T::describe_resource(Visitor {
+        columns,
+        query,
+        pred,
+    })
 }
 
 /// Builder to help a resource object reconstruct itself from query results.
 struct ResourceBuilder<'a, R> {
     row: &'a R,
+    columns: &'a ColumnMap,
+}
+
+impl<'a, R> ResourceBuilder<'a, R> {
+    fn new(columns: &'a ColumnMap, row: &'a R) -> Self {
+        Self { row, columns }
+    }
 }
 
 impl<'a, R: Row, T: gql::Resource> gql::ResourceBuilder<T> for ResourceBuilder<'a, R> {
@@ -140,26 +251,48 @@ impl<'a, R: Row, T: gql::Resource> gql::ResourceBuilder<T> for ResourceBuilder<'
     where
         F: gql::Field<Resource = T>,
     {
+        // Builder to reconstruct the type of `F`.
+        struct Builder<'a, R> {
+            column: usize,
+            columns: &'a ColumnMap,
+            row: &'a R,
+        }
+
+        impl<'a, R: Row, T: 'a + gql::Type> gql::Builder<T> for Builder<'a, R> {
+            type Error = Error;
+            type Resource = ResourceBuilder<'a, R> where T: gql::Resource;
+
+            fn resource(self) -> Self::Resource
+            where
+                T: gql::Resource,
+            {
+                ResourceBuilder::new(self.columns, self.row)
+            }
+
+            fn scalar(self) -> Result<T, Error>
+            where
+                T: gql::Scalar,
+            {
+                value_to_scalar(self.row.column(self.column).map_err(Error::sql)?)
+            }
+        }
+
         <F::Type as gql::Type>::build(Builder {
-            column: column_name::<F>(),
+            column: self.columns.index::<F>(),
+            columns: self.columns,
             row: self.row,
         })
     }
-}
-
-/// Convert a row of query results into a resource object.
-fn parse_row<R: Row, T: gql::Resource>(row: &R) -> Result<T, Error> {
-    T::build_resource(ResourceBuilder { row })
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::{
-        array,
+        array, init_logging,
         sql::db::{mock, SchemaColumn, Type, Value},
     };
-    use generic_array::typenum::U3;
+    use generic_array::typenum::{U2, U3};
     use gql::{Id, Resource};
 
     /// A simple test resource with scalar fields.
@@ -172,6 +305,8 @@ mod test {
 
     #[async_std::test]
     async fn test_resource_predicate() {
+        init_logging();
+
         let resources = [
             TestResource {
                 id: 1,
@@ -255,6 +390,109 @@ mod test {
                 .await
                 .unwrap(),
             &resources,
+        );
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Left {
+        id: Id,
+        field: i32,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Right {
+        id: Id,
+        field: i32,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Node {
+        id: Id,
+        left: Left,
+        right: Right,
+    }
+
+    #[async_std::test]
+    async fn test_join_filter() {
+        init_logging();
+
+        let db = mock::Connection::create();
+        db.create_table_with_rows::<U2>(
+            "lefts",
+            array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("field", Type::Int4),
+            ],
+            [array![Value; Value::from(0)], array![Value; Value::from(1)]],
+        )
+        .await
+        .unwrap();
+        db.create_table_with_rows::<U2>(
+            "rights",
+            array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("field", Type::Int4),
+            ],
+            [array![Value; Value::from(0)], array![Value; Value::from(1)]],
+        )
+        .await
+        .unwrap();
+        db.create_table_with_rows::<U3>(
+            "nodes",
+            array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("left", Type::Int4),
+                SchemaColumn::new("right", Type::Int4),
+            ],
+            [
+                array![Value; Value::from(1), Value::from(2)],
+                array![Value; Value::from(2), Value::from(2)],
+            ],
+        )
+        .await
+        .unwrap();
+
+        // Select all.
+        assert_eq!(
+            execute::<_, Node>(&db, None).await.unwrap(),
+            [
+                Node {
+                    id: 1,
+                    left: Left { id: 1, field: 0 },
+                    right: Right { id: 2, field: 1 },
+                },
+                Node {
+                    id: 2,
+                    left: Left { id: 2, field: 1 },
+                    right: Right { id: 2, field: 1 },
+                },
+            ]
+        );
+
+        // Select with a WHERE clause.
+        assert_eq!(
+            execute::<_, Node>(
+                &db,
+                Some(
+                    Node::has()
+                        .left(
+                            Left::has()
+                                .field(<i32 as gql::Type>::Predicate::cmp(
+                                    gql::IntCmpOp::EQ,
+                                    gql::Value::Lit(0)
+                                ))
+                                .into()
+                        )
+                        .into()
+                )
+            )
+            .await
+            .unwrap(),
+            [Node {
+                id: 1,
+                left: Left { id: 1, field: 0 },
+                right: Right { id: 2, field: 1 }
+            }]
         );
     }
 }

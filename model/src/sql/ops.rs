@@ -1,6 +1,6 @@
 //! Compilation of high-level GraphQL operations into low-level SQL operations.
 
-use super::db::{Type, Value};
+use super::db::{Column, Type, Value};
 use crate::graphql::type_system as gql;
 use convert_case::{Case, Casing};
 use is_type::Is;
@@ -66,6 +66,14 @@ impl Error {
 /// The name of the table corresponding to the resource `T`.
 fn table_name<T: gql::Resource>() -> String {
     to_snake_case(T::PLURAL_NAME)
+}
+
+/// The column corresponding to the field `F`.
+fn field_column<F: gql::Field>() -> Column<'static> {
+    Column::qualified(
+        table_name::<F::Resource>().into(),
+        column_name::<F>().into(),
+    )
 }
 
 /// The name of the column corresponding to the field `F`.
