@@ -125,6 +125,18 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Instantiation of a GraphQL [`DataSource`](gql::DataSource) for a SQL database.
 
 </span><span class="kw">use super</span>::{db, ops};
@@ -144,6 +156,18 @@
 <span class="doccomment">/// A data source for the bill tracker API implemented using a SQL database.
 </span><span class="attr">#[derive(Clone, Debug, From)]
 </span><span class="kw">pub struct </span>SqlDataSource&lt;Db&gt;(Db);
+
+<span class="kw">impl</span>&lt;Db: db::Connection&gt; SqlDataSource&lt;Db&gt; {
+    <span class="doccomment">/// The underlying connection to the database.
+    </span><span class="kw">pub fn </span>inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Db {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+    </span>}
+
+    <span class="doccomment">/// Unwrap this data source to get at the underlying connection.
+    </span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; Db {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
+}
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;Db: <span class="lifetime">&#39;static </span>+ db::Connection + Send + Sync&gt; gql::DataSource <span class="kw">for </span>SqlDataSource&lt;Db&gt; {

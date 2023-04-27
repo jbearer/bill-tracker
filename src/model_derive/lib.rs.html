@@ -232,6 +232,18 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Derive macros for the `model` crate.
 
 </span><span class="kw">use </span>proc_macro::TokenStream;
@@ -254,6 +266,8 @@
 ///   arguments and loads the appropriate page of results on demand.
 /// * A unit struct for each field of the original struct, containing metadata about the field via
 ///   the `Field` or `PluralField` trait. These are generated in a nested module called `fields`.
+/// * An input type for the struct, which contains only the struct&#39;s input fields, with references
+///   to other resources replaced by the resource ID.
 /// * A _has_ predicate, which is a GraphQL input type allowing the client to apply a filter to any
 ///   of the struct&#39;s fields.
 /// * A _singular predicate_ used to filter items of this resource. The predicate is an enum with
@@ -418,6 +432,16 @@
 /// Each entrypoint defined this way will generate a GraphQL field which takes the plural resource
 /// inputs (a `where` predicate and Relay paging inputs) and produces a paginated connection of
 /// items of the resource type matching the `where` clause.
+///
+/// The macro also generates a `register` associated function on the query type, with the signature:
+///
+/// ```ignore
+/// pub async fn register&lt;D: DataSource&gt;(db: &amp;mut D) -&gt; Result&lt;(), D::Error&gt;;
+/// ```
+///
+/// This function will traverse the list of resources in the query object and register all of the
+/// reachable resource types in the database, effectively creating a relational schema for the
+/// ontology defined by this object.
 ///
 /// # Examples
 ///
