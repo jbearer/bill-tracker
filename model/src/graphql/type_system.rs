@@ -21,19 +21,19 @@
 //!   provided by this module, and these cannot be extended.
 //! * A [`Resource`] is a subtype of [`Type`] which corresponds to a GraphQL object type or a table
 //!   in a relational database. Unlike a [`Scalar`], whose only observable property is its value, a
-//!   [`Resource`] can have many named properties of [`Scalar`] type as well as relations to other
-//!   [`Resource`] types. These relations can be singular (one-to-one or many-to-one) or plural
-//!   (one-to-many or many-to-many). They can be used in queries to easily select objects which
-//!   related to a selected resource and to prune results based on a property of a relationship
-//!   between resource.
+//!   [`Resource`] can have many named [`Field`]s as well as [`Relation`]s to other [`Resource`]
+//!   types. These relations can be used in queries to easily select objects which relate to a
+//!   selected resource and to prune results based on a property of a relationship between resource.
 
 use super::async_graphql as gql;
+use derivative::Derivative;
 use derive_more::Display;
 use is_type::Is;
 use sealed::sealed;
 use std::any::TypeId;
 use std::error::Error;
 use std::fmt::Display;
+use std::marker::PhantomData;
 
 pub use resource::*;
 pub use scalar::*;
@@ -57,9 +57,6 @@ pub trait Type: Clone + gql::OutputType {
 
     /// A boolean predciate on objects of this type.
     type Predicate: Predicate<Self>;
-
-    /// A predicate on collections of objects of this type.
-    type PluralPredicate: PluralPredicate<Self>;
 
     /// The representation of values of this type when creating a new object.
     ///
@@ -96,40 +93,6 @@ pub trait Visitor<T: Type> {
     fn scalar(self) -> Self::Output
     where
         T: Scalar;
-}
-
-/// The type of a collection of items of a given [`Type`].
-pub trait PluralType {
-    /// The type of an item in this collection.
-    type Singular: Type;
-}
-
-/// A boolean predicate on a [`PluralType`] consisting of items of type `T`.
-pub trait PluralPredicate<T: Type>: gql::InputType {
-    /// Compile this predicate into a form which the backend can execute.
-    ///
-    /// When a backend data source executes a GraphQL query, it must compile each predicate in the
-    /// query into a form which can be applied to data in the backend's particular datda model. The
-    /// backend implementation will construct a [`PluralPredicateCompiler`] which is specific to
-    /// that backend and pass it to [`compile`](Self::compile). The predicate will use the
-    /// backend-agnostic [`PluralPredicateCompiler`] to describe the structure of this predicate and
-    /// instruct the backend on how to compile it.
-    fn compile<C: PluralPredicateCompiler<T>>(self, compiler: C) -> C::Result;
-}
-
-/// A generic interface to a backend-specific plural predicate compiler.
-///
-/// A [`PluralPredicate`] can use this interface to instruct an arbitrary backend on how to compile
-/// it into a backend-specific format.
-pub trait PluralPredicateCompiler<T: Type> {
-    /// The backend-specific compilation result.
-    type Result;
-
-    /// A predicate which requires at least `min` objects in the collection to match `pred`.
-    fn at_least(self, min: usize, pred: T::Predicate) -> Self::Result;
-
-    /// A predicate which requires at most `max` objects in the collection to match `pred`.
-    fn at_most(self, max: usize, pred: T::Predicate) -> Self::Result;
 }
 
 /// An error encountered while reconstructing a GraphQL [`Type`] from query results.
@@ -436,9 +399,7 @@ pub mod scalar {
             $visit:ident,
             $mod:ident,
             $pred_name:expr,
-            $cmp_name:expr,
-            $quant_name:expr,
-            $plural_pred_name:expr
+            $cmp_name:expr
         )),+ $(,)?) => {
             $(
                 pub mod $mod {
@@ -527,65 +488,8 @@ pub mod scalar {
                         }
                     }
 
-                    /// A predicate which must match a certain quantity of integral scalars.
-                    #[derive(
-                        Clone,
-                        Copy,
-                        Debug,
-                        PartialEq,
-                        Eq,
-                        PartialOrd,
-                        Ord,
-                        Hash,
-                        gql::InputObject,
-                    )]
-                    #[graphql(name = $quant_name)]
-                    pub struct QuantifiedPredicate {
-                        /// The minimum or maximum number of items which must match.
-                        quantity: usize,
-                        /// The predicate to match against specific items.
-                        predicate: Predicate,
-                    }
-
-                    /// A predicate used to filter collections of integral scalars.
-                    #[derive(
-                        Clone,
-                        Copy,
-                        Debug,
-                        PartialEq,
-                        Eq,
-                        PartialOrd,
-                        Ord,
-                        Hash,
-                        gql::OneofObject,
-                    )]
-                    #[graphql(name = $plural_pred_name)]
-                    pub enum PluralPredicate {
-                        /// Matches if at least some number of items in the collection match a
-                        /// predicate.
-                        AtLeast(QuantifiedPredicate),
-                        /// Matches if at most some number of items in the collection match a
-                        /// predicate.
-                        AtMost(QuantifiedPredicate),
-                        /// Matches if at any items in the collection match a predicate.
-                        Any(Predicate),
-                        /// Matches if all items in the collection match a predicate.
-                        All(Predicate),
-                        /// Matches if no items in the collection match a predicate.
-                        None(Predicate),
-                        /// Matches if the collection includes the specified value.
-                        Includes(Value<$t>),
-                    }
-
-                    impl super::PluralPredicate<$t> for PluralPredicate {
-                        fn compile<C: PluralPredicateCompiler<$t>>(self, _compiler: C) -> C::Result {
-                            todo!()
-                        }
-                    }
-
                     impl Type for $t {
                         type Predicate = Predicate;
-                        type PluralPredicate = PluralPredicate;
 
                         type Input = Self;
 
@@ -619,10 +523,10 @@ pub mod scalar {
     }
 
     int_scalars! {
-        (i32, visit_i32, i32_scalar, "i32Predicate", "i32Cmp", "Quantifiedi32Predicate", "i32sPredicate"),
-        (i64, visit_i64, i64_scalar, "i64Predicate", "i64Cmp", "Quantifiedi64Predicate", "i64sPredicate"),
-        (u32, visit_u32, u32_scalar, "u32Predicate", "u32Cmp", "Quantifiedu32Predicate", "u32sPredicate"),
-        (u64, visit_u64, u64_scalar, "u64Predicate", "u64Cmp", "Quantifiedu64Predicate", "u64sPredicate"),
+        (i32, visit_i32, i32_scalar, "i32Predicate", "i32Cmp"),
+        (i64, visit_i64, i64_scalar, "i64Predicate", "i64Cmp"),
+        (u32, visit_u32, u32_scalar, "u32Predicate", "u32Cmp"),
+        (u64, visit_u64, u64_scalar, "u64Predicate", "u64Cmp"),
     }
 
     pub use i32_scalar::Trait as I32Scalar;
@@ -707,43 +611,8 @@ pub mod scalar {
         NE,
     }
 
-    /// A predicate which must match a certain quantity of strings.
-    #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, gql::InputObject)]
-    pub struct QuantifiedStringPredicate {
-        /// The minimum or maximum number of items which must match.
-        quantity: usize,
-        /// The predicate to match against specific items.
-        predicate: StringPredicate,
-    }
-
-    /// A predicate used to filter collections of integral scalars.
-    #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, gql::OneofObject)]
-    pub enum StringsPredicate {
-        /// Matches if at least some number of items in the collection match a
-        /// predicate.
-        AtLeast(QuantifiedStringPredicate),
-        /// Matches if at most some number of items in the collection match a
-        /// predicate.
-        AtMost(QuantifiedStringPredicate),
-        /// Matches if at any items in the collection match a predicate.
-        Any(StringPredicate),
-        /// Matches if all items in the collection match a predicate.
-        All(StringPredicate),
-        /// Matches if no items in the collection match a predicate.
-        None(StringPredicate),
-        /// Matches if the collection includes the specified value.
-        Includes(Value<String>),
-    }
-
-    impl PluralPredicate<String> for StringsPredicate {
-        fn compile<C: PluralPredicateCompiler<String>>(self, _compiler: C) -> C::Result {
-            todo!()
-        }
-    }
-
     impl Type for String {
         type Predicate = StringPredicate;
-        type PluralPredicate = StringsPredicate;
 
         type Input = Self;
 
@@ -769,10 +638,9 @@ pub mod resource {
     //! Resources are complex types in a relational GraphQL API.
     //!
     //! A resource type is akin to an object type in GraphQL or a table in a relational database. It
-    //! has its own fields as well as singular or plural relationships to other resources.
-    //! Collections of items of a particular resource can be filter down using a
-    //! [`ResourcePredicate`]. Entire collections of items of a given resource type can also be
-    //! filtered in or out using a [`PluralPredicate`].
+    //! has its own fields as well as [`Relation`]s to other resources. Collections of items of a
+    //! particular resource can be filter down using a [`ResourcePredicate`]. Entire collections of
+    //! items of a given resource type can also be filtered in or out using a [`RelationPredicate`].
     //!
     //! Users can define their own resources by implementing the [`Resource`] trait and relatives,
     //! or by using the [`macro@Resource`] derive macro.
@@ -790,10 +658,10 @@ pub mod resource {
         // the slightly unwield `Array<T, Self::NumFields>`.
         /// The number of singular fields this resource has.
         type NumFields: Length;
-        /// The number of plural fields this resource has.
-        type NumPluralFields: Length;
         /// The number of input fields this resource has.
         type NumInputFields: Length;
+        /// The number of relations this resource has to other resources.
+        type NumRelations: Length;
 
         /// The unique, sequentially increasing ID for this resource.
         type Id: Field<Resource = Self, Type = Id>;
@@ -804,6 +672,9 @@ pub mod resource {
         /// [`ResourcePredicate`](ResourcePredicate) has the more expressive trait bound
         /// [`ResourcePredicate`] instead of the generic [`Predicate`].
         type ResourcePredicate: ResourcePredicate<Self>;
+
+        /// A boolean predicate on a [`Relation`] targeting items of this type.
+        type RelationPredicate: RelationPredicate<Self>;
 
         /// The input used to specify a new object of this type.
         ///
@@ -827,13 +698,6 @@ pub mod resource {
         }
 
         /// Describe the structure and definition of this [`Resource`].
-        ///
-        /// This performs the same operation as [`describe`](Type::describe), but it can be called
-        /// directly with a [`ResourceVisitor`], instead of the more generic [`Visitor`]. This is
-        /// useful when it is known that a [`Type`] is actually a [`Resource`].
-        ///
-        /// It is an invariant that for all `T: Resource`,
-        /// `T::describe(visitor) == T::describe_resource(visitor.resource)`.
         fn describe_resource<V: ResourceVisitor<Self>>(visitor: V) -> V::Output {
             struct Visitor<V>(V);
 
@@ -845,17 +709,21 @@ pub mod resource {
                 }
             }
 
-            impl<T: Resource, V: ResourceVisitor<T>> PluralFieldVisitor<T> for Visitor<V> {
+            impl<T: Resource, V: ResourceVisitor<T>> RelationVisitor<T> for Visitor<V> {
                 type Output = ();
 
-                fn visit<F: PluralField<Resource = T>>(&mut self) -> Self::Output {
-                    self.0.visit_plural_field_in_place::<F>();
+                fn visit_many_to_one<R: ManyToOneRelation<Owner = T>>(&mut self) -> Self::Output {
+                    self.0.visit_many_to_one_in_place::<R>();
+                }
+
+                fn visit_many_to_many<R: ManyToManyRelation<Owner = T>>(&mut self) -> Self::Output {
+                    self.0.visit_many_to_many_in_place::<R>();
                 }
             }
 
             let mut visitor = Visitor(visitor);
             Self::describe_fields(&mut visitor);
-            Self::describe_plural_fields(&mut visitor);
+            Self::describe_relations(&mut visitor);
             visitor.0.end()
         }
 
@@ -864,15 +732,15 @@ pub mod resource {
             visitor: &mut V,
         ) -> Array<V::Output, Self::NumFields>;
 
-        /// Describe the plural fields of this resource.
-        fn describe_plural_fields<V: PluralFieldVisitor<Self>>(
-            visitor: &mut V,
-        ) -> Array<V::Output, Self::NumPluralFields>;
-
         /// Describe the input fields of this resource.
         fn describe_input_fields<V: InputFieldVisitor<Self>>(
             visitor: &mut V,
         ) -> Array<V::Output, Self::NumInputFields>;
+
+        /// Describe the relations that this resource has to other resources.
+        fn describe_relations<V: RelationVisitor<Self>>(
+            visitor: &mut V,
+        ) -> Array<V::Output, Self::NumRelations>;
 
         /// The names of this resource's singular fields.
         fn field_names() -> Array<&'static str, Self::NumFields> {
@@ -992,21 +860,131 @@ pub mod resource {
         ) -> &<Self::Type as Type>::Input;
     }
 
-    /// Metadata about a plural field of a resource.
-    pub trait PluralField: 'static {
-        /// The type of the field.
-        type Type: PluralType;
-
-        /// The resource that this field belongs to.
-        type Resource: Resource;
-
-        /// The name of the field.
+    /// Metadata about a relation of a resource.
+    ///
+    /// A relation is like a virtual property of an object. Rather than being represented explicitly
+    /// in the object itself, like a [`Field`], the value of a relation comes from the relationshp
+    /// of the owning object to some other object or objects in the ontology -- the _target_ of the
+    /// relation.
+    ///
+    /// For example, an object of [`Resource`] A might be related to objects of [`Resource`] B by
+    /// a field on `B` which stores the ID of type `A`. This would be a one-to-many relation.
+    ///
+    /// We categorize relations by their _arity_ -- the number of objects on each side of the
+    /// relationship. If any number of objects of one resource can be related to any number of
+    /// objects of another, it is a many-to-many relationship. If an object of one resource is
+    /// related to a unique object of another, but any number of the former can relate to the same
+    /// object of the latter, it is a many-to-one relationship. One-to-one relations are not
+    /// supported.
+    ///
+    /// A useful property of a [`Relation`] is its _inverse_ -- the field or relation on the target
+    /// resource which relates back to this relation. The type of the inverse depends on the arity
+    /// of the relation. In a many-to-many relation, both sides are a relation, so
+    /// [`ManyToManyRelation::Inverse`] implements [`Relation`]. But in a many-to-one relation, each
+    /// object in the target resource (the "many" side) is related to exactly one object in the
+    /// owning resource (the "one" side) by means of a field storing the ID of the owning resource,
+    /// so [`ManyToOneRelation::Inverse`] implements [`Field`].
+    pub trait Relation: 'static {
+        /// The resource owning this relation.
+        type Owner: Resource;
+        /// The type of objects in this relation.
+        type Target: Resource;
+        /// The name of this relation.
         const NAME: &'static str;
+
+        /// Describe this relation to a backend.
+        fn visit<V: RelationVisitor<Self::Owner>>(visitor: &mut V) -> V::Output;
+
+        /// Access the sub-predicate used to filter this relation in a [`ResourcePredicate`].
+        fn get_predicate(
+            predicate: &<Self::Owner as Resource>::ResourcePredicate,
+        ) -> Option<&<Self::Target as Resource>::RelationPredicate>;
+
+        /// Access the sub-predicate used to filter this relation in a [`ResourcePredicate`].
+        fn get_predicate_mut(
+            predicate: &mut <Self::Owner as Resource>::ResourcePredicate,
+        ) -> Option<&mut <Self::Target as Resource>::RelationPredicate>;
+
+        /// Take the sub-predicate used to fitler this relation in a [`ResourcePredicate`].
+        ///
+        /// The next time this function, [`get_predicate`](Self::get_predicate), or
+        /// [`get_predicate_mut`](Self::get_predicate_mut) is called on the same relation, it will
+        /// return [`None`], since the field has been taken.
+        fn take_predicate(
+            predicate: &mut <Self::Owner as Resource>::ResourcePredicate,
+        ) -> Option<<Self::Target as Resource>::RelationPredicate>;
     }
 
-    /// The [`PluralPredicate`] used to filter a resource by its [`PluralField`] `F`.
-    pub type PluralFieldPredicate<F> =
-        <<<F as PluralField>::Type as PluralType>::Singular as Type>::PluralPredicate;
+    /// A boolean predicate on a [`Relation`] targeting items of type `T`.
+    pub trait RelationPredicate<T: Resource> {
+        /// Compile this predicate into a form which the backend can execute.
+        ///
+        /// When a backend data source executes a GraphQL query, it must compile each predicate in
+        /// the query into a form which can be applied to data in the backend's particular datda
+        /// model. For relation predicates, the backend implementation will construct a
+        /// [`RelationPredicateCompiler`] which is specific to that backend and pass it to
+        /// [`compile`](Self::compile). The predicate will use the backend-agnostic
+        /// [`RelationPredicateCompiler`] to describe the structure of this predicate and instruct
+        /// the backend on how to compile it.
+        fn compile<C: RelationPredicateCompiler<T>>(self, compiler: C) -> C::Result;
+    }
+
+    /// A generic interface to a backend-specific relation predicate compiler.
+    ///
+    /// A [`RelationPredicate`] can use this interface to instruct an arbitrary backend on how to
+    /// compile it into a backend-specific format.
+    pub trait RelationPredicateCompiler<T: Type> {
+        /// The backend-specific compilation result.
+        type Result;
+
+        /// A predicate which requires at least `min` objects in the relation to match `pred`.
+        fn at_least(self, min: usize, pred: T::Predicate) -> Self::Result;
+
+        /// A predicate which requires at most `max` objects in the relation to match `pred`.
+        fn at_most(self, max: usize, pred: T::Predicate) -> Self::Result;
+    }
+
+    /// A many-to-one relation.
+    pub trait ManyToOneRelation: Relation {
+        /// The field on target objects which unique denotes this object as their owner.
+        type Inverse: Field<Type = Self::Owner, Resource = Self::Target>;
+    }
+
+    /// A marker type used in the definition of a resource to declare a [`ManyToOneRelation`].
+    #[derive(Derivative)]
+    #[derivative(
+        Clone(bound = ""),
+        Copy(bound = ""),
+        Debug(bound = ""),
+        Default(bound = ""),
+        PartialEq(bound = ""),
+        Eq(bound = ""),
+        PartialOrd(bound = ""),
+        Ord(bound = ""),
+        Hash(bound = "")
+    )]
+    pub struct BelongsTo<T: Resource>(PhantomData<fn(&T)>);
+
+    /// A many-to-many relation.
+    pub trait ManyToManyRelation: Relation {
+        /// The relation on target objects which links them back to this object.
+        type Inverse: Relation<Target = Self::Owner, Owner = Self::Target>;
+    }
+
+    /// A marker type used in the definition of a resource to declare a [`ManyToManyRelation`].
+    #[derive(Derivative)]
+    #[derivative(
+        Clone(bound = ""),
+        Copy(bound = ""),
+        Debug(bound = ""),
+        Default(bound = ""),
+        PartialEq(bound = ""),
+        Eq(bound = ""),
+        PartialOrd(bound = ""),
+        Ord(bound = ""),
+        Hash(bound = "")
+    )]
+    pub struct Many<T: Resource>(PhantomData<fn(&T)>);
 
     /// Visitor which allows a [`Resource`] to describe itself to a backend.
     ///
@@ -1025,14 +1003,23 @@ pub mod resource {
         /// Tell the visitor about a field `F` of type `T`, mutating the visitor.
         fn visit_field_in_place<F: Field<Resource = T>>(&mut self);
 
-        /// Tell the visitor about a plural field `F` of type `T`.
-        fn visit_plural_field<F: PluralField<Resource = T>>(mut self) -> Self {
-            self.visit_plural_field_in_place::<F>();
+        /// Tell the visitor about a many-to-one relation `R`.
+        fn visit_many_to_one<R: ManyToOneRelation<Owner = T>>(mut self) -> Self {
+            self.visit_many_to_one_in_place::<R>();
             self
         }
 
-        /// Tell the visitor about a plural field `F` of type `T`, mutating the visitor.
-        fn visit_plural_field_in_place<F: PluralField<Resource = T>>(&mut self);
+        /// Tell the visitor about a many-to-one relation `R`, mutating the visitor.
+        fn visit_many_to_one_in_place<R: ManyToOneRelation<Owner = T>>(&mut self);
+
+        /// Tell the visitor about a many-to-many relation `R`.
+        fn visit_many_to_many<R: ManyToManyRelation<Owner = T>>(mut self) -> Self {
+            self.visit_many_to_many_in_place::<R>();
+            self
+        }
+
+        /// Tell the visitor about a many-to-many relation `R`, mutating the visitor.
+        fn visit_many_to_many_in_place<R: ManyToManyRelation<Owner = T>>(&mut self);
 
         /// Finish visiting the type and collect the output.
         fn end(self) -> Self::Output;
@@ -1040,20 +1027,11 @@ pub mod resource {
 
     /// Visitor which allows fields of a [`Resource`] to describe themselves to a backend.
     pub trait FieldVisitor<T: Resource> {
-        /// An output summarizing the results of visiting `T`s singular fields.
+        /// An output summarizing the results of visiting `T`s fields.
         type Output;
 
         /// Tell the visitor about a field `F`.
         fn visit<F: Field<Resource = T>>(&mut self) -> Self::Output;
-    }
-
-    /// Visitor which allows plural fields of a [`Resource`] to describe themselves to a backend.
-    pub trait PluralFieldVisitor<T: Resource> {
-        /// An output summarizing the results of visiting `T`s plural fields.
-        type Output;
-
-        /// Tell the visitor about a field `F`.
-        fn visit<F: PluralField<Resource = T>>(&mut self) -> Self::Output;
     }
 
     /// Visitor which allows a backend to visit the input fields of a [`Resource`].
@@ -1063,5 +1041,17 @@ pub mod resource {
 
         /// Tell the visitor about a field `F`.
         fn visit<F: InputField<Resource = T>>(&mut self) -> Self::Output;
+    }
+
+    /// Visitor which allows relations of a [`Resource`] to describe themselves to a backend.
+    pub trait RelationVisitor<T: Resource> {
+        /// An output summarizing the results of visiting `T`s relations.
+        type Output;
+
+        /// Tell the visitor about a many-to-one relation `R`.
+        fn visit_many_to_one<R: ManyToOneRelation<Owner = T>>(&mut self) -> Self::Output;
+
+        /// Tell the visitor about a many-to-many relation `R`.
+        fn visit_many_to_many<R: ManyToManyRelation<Owner = T>>(&mut self) -> Self::Output;
     }
 }

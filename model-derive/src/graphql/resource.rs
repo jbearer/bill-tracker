@@ -7,7 +7,8 @@ use itertools::{Either, Itertools};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
-    Attribute, Data, DataStruct, DeriveInput, Expr, Field, Fields, Ident, LitBool, Type, Visibility,
+    Attribute, Data, DataStruct, DeriveInput, Expr, Field, Fields, GenericArgument, Ident,
+    PathArguments, Type, Visibility,
 };
 
 /// Derive a `Resource` instance for a struct.
@@ -78,7 +79,7 @@ fn generate_struct(
     // Derive a name for the module that will contain the generated items;
     let mod_name = p
         .get_arg(&attrs, "module")
-        .unwrap_or_else(|| Ident::new(&name.to_string().to_case(Case::Snake), Span::call_site()));
+        .unwrap_or_else(|| default_mod_name(&name));
 
     // Get the documentation on this struct. We will need to add this to the generated `#[Object]`
     // impl so that it shows up in the exported schema.
@@ -88,7 +89,7 @@ fn generate_struct(
     let input_name = format_ident!("{}Input", name);
     let pred_name = format_ident!("{}Predicate", name);
     let has_name = format_ident!("{}Has", name);
-    let plural_pred_name = format_ident!("{}Predicate", plural_name);
+    let relation_pred_name = format_ident!("{}Predicate", plural_name);
     let quant_name = format_ident!("Quantified{}Predicate", name);
 
     // Create documentation for each of the structs.
@@ -99,7 +100,7 @@ fn generate_struct(
         "A predicate which must match a certain quantity of {}.",
         plural_name
     );
-    let plural_pred_doc = format!("A predicate used to filter collections of {}.", plural_name);
+    let relation_pred_doc = format!("A predicate used to filter collections of {}.", plural_name);
 
     // Get the ID field.
     let id_field = fields
@@ -126,7 +127,7 @@ fn generate_struct(
             Is(<#ty as Type>::Predicate),
         }
     });
-    // The `includes` plural predicate, filtering a collection based on whether or not it contains
+    // The `includes` relation predicate, filtering a collection based on whether or not it contains
     // any items with the given value for their primary field.
     let includes_primary = primary_field.as_ref().map(|f| {
         let ty = &f.ty;
@@ -136,16 +137,18 @@ fn generate_struct(
         }
     });
 
-    // Generate marker types to hold metadta for each field.
+    // Generate marker types to hold metadata for each field.
     let field_metas = fields
         .iter()
         .map(|f| generate_field_meta(&field_export, &name, f));
     let field_meta_impls = fields
         .iter()
-        .map(|f| generate_field_meta_impl(&p, &name, &pred_name, f, primary_field));
+        .map(|f| generate_field_meta_impl(&p, &name, &plural_name, &pred_name, f, primary_field));
 
     // Generate code to reconstruct each field from a builder.
-    let field_builders = fields.iter().map(|f| generate_field_builder(&p, f));
+    let field_builders = fields
+        .iter()
+        .map(|f| generate_field_builder(&p, &name, &plural_name, f));
 
     // Generate code to populate skipped fields with default values during building.
     let skipped_field_builders = skipped.iter().map(|(f, default)| {
@@ -154,74 +157,68 @@ fn generate_struct(
     });
 
     // Generate code to visit each field of this struct.
-    let singular_field_visitors = fields
+    let field_visitors = fields
         .iter()
         .filter_map(|f| {
-            if field_is_plural(&p, f) {
+            if field_relation(&p, &name, &plural_name, f).is_some() {
+                // This is a relation, not a field.
                 None
             } else {
                 Some(generate_field_visitor(f))
-            }
-        })
-        .collect::<Vec<_>>();
-    let plural_field_visitors = fields
-        .iter()
-        .filter_map(|f| {
-            if field_is_plural(&p, f) {
-                Some(generate_field_visitor(f))
-            } else {
-                None
             }
         })
         .collect::<Vec<_>>();
     let input_field_visitors = fields
         .iter()
         .filter_map(|f| {
-            if field_is_input(&p, f) {
+            if field_is_input(&p, &name, &plural_name, f) {
                 Some(generate_field_visitor(f))
             } else {
                 None
             }
         })
         .collect::<Vec<_>>();
+    let relation_visitors = fields
+        .iter()
+        .filter_map(|f| field_relation(&p, &name, &plural_name, f).map(generate_relation_visitor))
+        .collect::<Vec<_>>();
 
     // Count the number of fields of each type.
-    let num_singular_fields = format_ident!("U{}", singular_field_visitors.len());
-    let num_plural_fields = format_ident!("U{}", plural_field_visitors.len());
+    let num_fields = format_ident!("U{}", field_visitors.len());
     let num_input_fields = format_ident!("U{}", input_field_visitors.len());
+    let num_relations = format_ident!("U{}", relation_visitors.len());
 
     // Generate an input field for each required field of this struct.
     let input_fields = fields
         .iter()
-        .filter_map(|f| generate_input_field(&p, &export, f));
+        .filter_map(|f| generate_input_field(&p, &name, &plural_name, &export, f));
 
     // Generate predicates for each field of this struct.
-    let pred_fields = fields.iter().map(|f| generate_predicate_field(&p, f));
+    let pred_fields = fields
+        .iter()
+        .map(|f| generate_predicate_field(&p, &name, &plural_name, f));
 
     // Generate builder methods for each field of this struct.
     let has_builder_fields = fields
         .iter()
-        .map(|f| generate_has_builder_field(&p, &export, f));
+        .map(|f| generate_has_builder_field(&p, &name, &plural_name, &export, f));
 
     // Generate resolvers for each field.
-    let resolvers = fields.iter().map(|f| generate_resolver(&p, f));
+    let resolvers = fields
+        .iter()
+        .map(|f| generate_resolver(&p, &name, &plural_name, f));
 
     quote! {
         #vis mod #mod_name {
-            // We currently generate some `unimplemented!()` calls in some of the generated items.
-            // This causes warnings in reachability analysis since the `unimplemented!()` macro
-            // unconditionally panics. Until we finish this derive macro and remove all the calls to
-            // `unimplemented!()`, ignore these warnings in the generated code.
-            #![allow(unreachable_code)]
-
             use super::*;
             use #graphql::{
-                async_graphql, connection::Connection, backend::{Cursor, DataSource, Many},
+                async_graphql, connection::{self, Connection},
+                backend::{Connection as _, Cursor, DataSource, PageRequest},
                 type_system::{
                     typenum, Array, Builder, BuildError, Field, FieldVisitor, InputField,
-                    InputFieldVisitor, PluralField, PluralFieldVisitor, PluralPredicate,
-                    PluralPredicateCompiler, PluralType, Predicate, Resource, ResourceBuilder,
-                    ResourceInput, ResourcePredicate, Type, Value, Visitor,
+                    InputFieldVisitor, ManyToManyRelation, ManyToOneRelation, Predicate, Relation,
+                    RelationVisitor, RelationPredicate, RelationPredicateCompiler, Resource,
+                    ResourceBuilder, ResourceInput, ResourcePredicate, Type, Value, Visitor,
                 },
                 Context, D, EmptyFields, InputObject, Object, OneofObject, Result,
             };
@@ -287,9 +284,9 @@ fn generate_struct(
                 predicate: #pred_name,
             }
 
-            #[doc = #plural_pred_doc]
+            #[doc = #relation_pred_doc]
             #[derive(Clone, Debug, OneofObject)]
-            #export enum #plural_pred_name {
+            #export enum #relation_pred_name {
                 /// Matches if at least some number of items in the collection match a predicate.
                 AtLeast(#quant_name),
                 /// Matches if at most some number of items in the collection match a predicate.
@@ -303,9 +300,9 @@ fn generate_struct(
                 #includes_primary
             }
 
-            impl PluralPredicate<#name> for #plural_pred_name {
-                fn compile<C: PluralPredicateCompiler<#name>>(self, compiler: C) -> C::Result {
-                    unimplemented!("plural predicate compilation")
+            impl RelationPredicate<#name> for #relation_pred_name {
+                fn compile<C: RelationPredicateCompiler<#name>>(self, compiler: C) -> C::Result {
+                    unimplemented!("relation predicate compilation")
                 }
             }
 
@@ -318,7 +315,6 @@ fn generate_struct(
 
             impl Type for #name {
                 type Predicate = #pred_name;
-                type PluralPredicate = #plural_pred_name;
 
                 // When referred to as an input to another resource, this resource is referenced by
                 // ID, not included by value.
@@ -337,13 +333,15 @@ fn generate_struct(
             }
 
             impl Resource for #name {
-                type NumFields = typenum::#num_singular_fields;
-                type NumPluralFields = typenum::#num_plural_fields;
+                type NumFields = typenum::#num_fields;
                 type NumInputFields = typenum::#num_input_fields;
+                type NumRelations = typenum::#num_relations;
 
                 type Id = fields::#id_name;
 
                 type ResourcePredicate = #pred_name;
+                type RelationPredicate = #relation_pred_name;
+
                 type ResourceInput = #input_name;
 
                 fn build_resource<B: ResourceBuilder<Self>>(builder: B) -> Result<Self, B::Error> {
@@ -356,13 +354,7 @@ fn generate_struct(
                 fn describe_fields<V: FieldVisitor<Self>>(
                     visitor: &mut V,
                 ) -> Array<V::Output, Self::NumFields> {
-                    [#(#singular_field_visitors),*].into()
-                }
-
-                fn describe_plural_fields<V: PluralFieldVisitor<Self>>(
-                    visitor: &mut V,
-                ) -> Array<V::Output, Self::NumPluralFields> {
-                    [#(#plural_field_visitors),*].into()
+                    [#(#field_visitors),*].into()
                 }
 
                 fn describe_input_fields<V: InputFieldVisitor<Self>>(
@@ -370,9 +362,29 @@ fn generate_struct(
                 ) -> Array<V::Output, Self::NumInputFields> {
                     [#(#input_field_visitors),*].into()
                 }
+
+                fn describe_relations<V: RelationVisitor<Self>>(
+                    visitor: &mut V,
+                ) -> Array<V::Output, Self::NumRelations> {
+                    [#(#relation_visitors),*].into()
+                }
             }
         }
     }
+}
+
+#[derive(Clone, Debug)]
+struct Relation {
+    name: Ident,
+    arity: RelationArity,
+    target: Ident,
+    inverse: Type,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum RelationArity {
+    ManyToMany,
+    ManyToOne,
 }
 
 fn generate_field_meta(vis: &Visibility, resource: &Ident, f: &Field) -> TokenStream {
@@ -388,6 +400,7 @@ fn generate_field_meta(vis: &Visibility, resource: &Ident, f: &Field) -> TokenSt
 fn generate_field_meta_impl(
     p: &AttrParser,
     resource: &Ident,
+    plural_resource: &Ident,
     pred_name: &Ident,
     f: &Field,
     primary_field: Option<&Field>,
@@ -396,12 +409,72 @@ fn generate_field_meta_impl(
     let meta_name = field_meta_name(name);
     let name_str = name.to_string();
     let ty = &f.ty;
-    if field_is_plural(p, f) {
+    if let Some(Relation {
+        arity,
+        inverse,
+        target,
+        ..
+    }) = field_relation(p, resource, plural_resource, f)
+    {
+        let arity_trait = match arity {
+            RelationArity::ManyToMany => quote!(ManyToManyRelation),
+            RelationArity::ManyToOne => quote!(ManyToOneRelation),
+        };
+        let visit = match arity {
+            RelationArity::ManyToMany => quote!(visit_many_to_many),
+            RelationArity::ManyToOne => quote!(visit_many_to_one),
+        };
+        let get_primary = primary_field.map(|_| {
+            // A relation can never be the primary field, so if we try to get the predicate on this
+            // relation from a predicate on the primary field, we simply return [`None`].
+            quote!(#pred_name::Is(_) => None,)
+        });
         quote! {
-            impl PluralField for fields::#meta_name {
-                type Type = #ty;
-                type Resource = #resource;
+            impl Relation for fields::#meta_name {
+                type Owner = #resource;
+                type Target = #target;
                 const NAME: &'static str = #name_str;
+
+                fn visit<V: RelationVisitor<Self::Owner>>(visitor: &mut V) -> V::Output {
+                    visitor.#visit::<Self>()
+                }
+
+                fn get_predicate(
+                    predicate: &#pred_name,
+                ) -> Option<&<Self::Target as Resource>::RelationPredicate> {
+                    match predicate {
+                        #pred_name::Has(has) => {
+                            has.#name.as_ref()
+                        }
+                        #get_primary
+                    }
+                }
+
+                fn get_predicate_mut(
+                    predicate: &mut #pred_name,
+                ) -> Option<&mut <Self::Target as Resource>::RelationPredicate> {
+                    match predicate {
+                        #pred_name::Has(has) => {
+                            has.#name.as_mut()
+                        }
+                        #get_primary
+                    }
+                }
+
+                fn take_predicate(
+                    predicate: &mut #pred_name,
+                ) -> Option<<Self::Target as Resource>::RelationPredicate> {
+                    match predicate {
+                        #pred_name::Has(has) => {
+                            has.#name.take()
+                        }
+                        #get_primary
+                    }
+                }
+            }
+
+            impl #arity_trait for fields::#meta_name {
+                type Inverse = #inverse;
             }
         }
     } else {
@@ -429,7 +502,7 @@ fn generate_field_meta_impl(
                 quote!(#pred_name::Is(_) => None,)
             }
         });
-        let input = if field_is_input(p, f) {
+        let input = if field_is_input(p, resource, plural_resource, f) {
             Some(quote! {
                 impl InputField for fields::#meta_name {
                     fn get_input(
@@ -492,12 +565,20 @@ fn generate_field_meta_impl(
     }
 }
 
-fn generate_field_builder(p: &AttrParser, f: &Field) -> TokenStream {
+fn generate_field_builder(
+    p: &AttrParser,
+    resource: &Ident,
+    plural_resource: &Ident,
+    f: &Field,
+) -> TokenStream {
     let name = f.ident.as_ref().expect("Resource fields must be named");
     let meta = field_meta_name(name);
-    if field_is_plural(p, f) {
+    if field_relation(p, resource, plural_resource, f).is_some() {
         quote! {
-            #name: unimplemented!("plural field building"),
+            // Relation fields are just placeholders indicating the type of the relation. The actual
+            // contents of the relation will be loaded asynchronously, on-demand by the
+            // corresponding resolver. Thus, we can just default-construct the placeholder.
+            #name: Default::default(),
         }
     } else {
         quote! {
@@ -514,8 +595,23 @@ fn generate_field_visitor(f: &Field) -> TokenStream {
     }
 }
 
-fn generate_input_field(p: &AttrParser, vis: &Visibility, f: &Field) -> Option<TokenStream> {
-    if field_is_input(p, f) {
+fn generate_relation_visitor(r: Relation) -> TokenStream {
+    let name = r.name;
+    let meta = field_meta_name(&name);
+    match r.arity {
+        RelationArity::ManyToMany => quote!(visitor.visit_many_to_many::<fields::#meta>()),
+        RelationArity::ManyToOne => quote!(visitor.visit_many_to_one::<fields::#meta>()),
+    }
+}
+
+fn generate_input_field(
+    p: &AttrParser,
+    resource: &Ident,
+    plural_resource: &Ident,
+    vis: &Visibility,
+    f: &Field,
+) -> Option<TokenStream> {
+    if field_is_input(p, resource, plural_resource, f) {
         let ty = &f.ty;
         let Some(name) = &f.ident else {
             panic!("Resource fields must be named");
@@ -528,46 +624,57 @@ fn generate_input_field(p: &AttrParser, vis: &Visibility, f: &Field) -> Option<T
     }
 }
 
-fn generate_predicate_field(p: &AttrParser, f: &Field) -> TokenStream {
+fn generate_predicate_field(
+    p: &AttrParser,
+    resource: &Ident,
+    plural_resource: &Ident,
+    f: &Field,
+) -> TokenStream {
     let ty = &f.ty;
     let Some(name) = &f.ident else {
         panic!("Resource fields must be named");
     };
-    if field_is_plural(p, f) {
-        // If the field is plural, it is filtered by a predicate on collections of the singular
+    if let Some(Relation { target, .. }) = field_relation(p, resource, plural_resource, f) {
+        // If the field is a relation, it is filtered by a predicate on collections of the target
         // type.
         quote! {
-            #name: Option<<<#ty as PluralType>::Singular as Type>::PluralPredicate>,
+            #name: Option<<#target as Resource>::RelationPredicate>,
         }
     } else {
-        // Otherwise it is just filtered by the regular singular predicate.
+        // Otherwise it is just filtered by the regular predicate.
         quote! {
             #name: Option<<#ty as Type>::Predicate>,
         }
     }
 }
 
-fn generate_has_builder_field(p: &AttrParser, vis: &Visibility, f: &Field) -> TokenStream {
+fn generate_has_builder_field(
+    p: &AttrParser,
+    resource: &Ident,
+    plural_resource: &Ident,
+    vis: &Visibility,
+    f: &Field,
+) -> TokenStream {
     let ty = &f.ty;
     let Some(name) = &f.ident else {
         panic!("Resource fields must be named");
     };
     let doc = format!("Apply a predicate to the field {name}.");
-    if field_is_plural(p, f) {
-        // If the field is plural, it is filtered by a predicate on collections of the singular
+    if let Some(Relation { target, .. }) = field_relation(p, resource, plural_resource, f) {
+        // If the field is a relation, it is filtered by a predicate on collections of the target
         // type.
         quote! {
             #[doc = #doc]
             #vis fn #name(
                 mut self,
-                pred: <<#ty as PluralType>::Singular as Type>::PluralPredicate,
+                pred: <#target as Resource>::RelationPredicate,
             ) -> Self {
                 self.#name = Some(pred);
                 self
             }
         }
     } else {
-        // Otherwise it is just filtered by the regular singular predicate.
+        // Otherwise it is just filtered by the regular predicate.
         quote! {
             #[doc = #doc]
             #vis fn #name(mut self, pred: <#ty as Type>::Predicate) -> Self {
@@ -578,37 +685,68 @@ fn generate_has_builder_field(p: &AttrParser, vis: &Visibility, f: &Field) -> To
     }
 }
 
-fn generate_resolver(p: &AttrParser, f: &Field) -> TokenStream {
-    let name = &f.ident;
+fn generate_resolver(
+    p: &AttrParser,
+    resource: &Ident,
+    plural_resource: &Ident,
+    f: &Field,
+) -> TokenStream {
+    let name = f.ident.as_ref().unwrap();
     let ty = &f.ty;
     let doc = parse_docs(&f.attrs);
 
-    if field_is_plural(p, f) {
-        let singular = quote! { <#ty as PluralType>::Singular };
+    if let Some(Relation { target, .. }) = field_relation(p, resource, plural_resource, f) {
+        let meta_name = field_meta_name(name);
         quote! {
-            // Resolvers that yields collections get extra parameters for filtering the collections,
+            // Resolvers that yield collections get extra parameters for filtering the collections,
             // including paging parameters and a where clause.
             #[doc = #doc]
             async fn #name(
                 &self,
                 ctx: &Context<'_>,
                 #[graphql(name = "where")]
-                filter: Option<<#singular as Type>::Predicate>,
+                filter: Option<<#target as Type>::Predicate>,
                 after: Option<String>,
                 before: Option<String>,
-                first: Option<usize>,
-                last: Option<usize>,
-            ) -> Result<Connection<Cursor<D, #singular>, #singular>> {
-                // Use the corresponding field to silence dead code warnings. We can remove this
-                // once we have actually implemented this resolver.
+                first: Option<i32>,
+                last: Option<i32>,
+            ) -> Result<Connection<Cursor<D, #target>, #target, EmptyFields, EmptyFields>> {
+                // The field corresponding to this relation is just a placeholder for declaring the
+                // type of the relation. Use it to silence dead code warnings.
                 let _ = &self.#name;
 
-                unimplemented!("plural resolvers")
+                connection::query(after, before, first, last, |after, before, first, last| async move {
+                    // Load the relation from the database.
+                    let db = ctx.data::<D>()?;
+                    let relation = db.load_relation::<fields::#meta_name>(self, filter).await?;
+
+                    // Load the requested page.
+                    let req = PageRequest { after, before, first, last };
+                    let page = db.load_page(&relation, req).await?;
+
+                    // Convert it into a GraphQL connection.
+                    let has_previous = page
+                        .first()
+                        .map(|edge| relation.has_previous(edge.cursor()))
+                        .unwrap_or(false);
+                    let has_next = page
+                        .last()
+                        .map(|edge| relation.has_next(edge.cursor()))
+                        .unwrap_or(false);
+                    let mut conn = Connection::with_additional_fields(
+                        has_previous,
+                        has_next,
+                        relation.into_fields(),
+                    );
+                    conn.edges.extend(page.into_iter().map(|edge| edge.into()));
+
+                    Ok::<_, async_graphql::Error>(conn)
+                }).await
             }
         }
     } else {
         quote! {
-            // Singular fields just resolve to the field itself.
+            // Regular fields just resolve to the field itself.
             #[doc = #doc]
             async fn #name(&self) -> &#ty {
                 &self.#name
@@ -629,36 +767,75 @@ fn field_is_id(p: &AttrParser, f: &Field) -> bool {
     type_name.ident == "Id"
 }
 
-fn field_is_plural(p: &AttrParser, f: &Field) -> bool {
-    // Check if the field is explicitly plural.
-    if p.has_bool(&f.attrs, "plural") {
-        return true;
-    }
-    let explicit: Option<LitBool> = p.get_arg(&f.attrs, "plural");
-    let explicit = explicit.map(|lit| lit.value);
-    if explicit == Some(true) {
-        return true;
-    }
+fn field_relation(
+    p: &AttrParser,
+    resource: &Ident,
+    plural_resource: &Ident,
+    f: &Field,
+) -> Option<Relation> {
+    // The type of the field indicates the arity and target type of relation, if this is one (e.g.
+    // `BelongsTo<Target>`).
+    let Type::Path(path) = &f.ty else { return None; };
+    let type_name = path.path.segments.last()?;
 
-    // Check if the field has an implicitly plural type (e.g. `Many`). If not, it is not plural.
-    let Type::Path(path) = &f.ty else { return false; };
-    let Some(type_name) = path.path.segments.last() else { return false; };
-    if type_name.ident == "Many" && explicit != Some(false) {
-        return true;
+    // If this type is going to match, it must have a single generic argument which is the name of
+    // the target resource.
+    let PathArguments::AngleBracketed(target) = &type_name.arguments else { return None; };
+    if target.args.len() != 1 {
+        return None;
     }
-    // If the field is not explicitly or implicitly plural, it is not plural.
-    false
+    let GenericArgument::Type(Type::Path(target)) = target.args.first().unwrap() else {
+        return None;
+    };
+    let target = target.path.get_ident()?.clone();
+
+    // It must also have a name indicating the arity of the relation.
+    let arity = if type_name.ident == "BelongsTo" {
+        RelationArity::ManyToOne
+    } else if type_name.ident == "Many" {
+        RelationArity::ManyToMany
+    } else {
+        return None;
+    };
+    let inverse_name = match p.get_arg(&f.attrs, "inverse") {
+        Some(inverse) => {
+            // If the inverse is explicitly specified, take it and treat it as the name of the field
+            // or relation on the target type which refers back to the owning type.
+            field_meta_name(&inverse)
+        }
+        None => {
+            // Otherwise, assume that the inverse is a field on the target type named for this type.
+            // The pluralization is based on the arity.
+            match arity {
+                RelationArity::ManyToOne => resource.clone(),
+                RelationArity::ManyToMany => plural_resource.clone(),
+            }
+        }
+    };
+    // The inverse is defined in the fields module of the target type.
+    let target_mod = default_mod_name(&target);
+    let inverse = syn::parse2(quote!(#target_mod::fields::#inverse_name)).unwrap();
+
+    // The name comes from the field name.
+    let name = f.ident.clone().unwrap();
+
+    Some(Relation {
+        arity,
+        target,
+        inverse,
+        name,
+    })
 }
 
-fn field_is_input(p: &AttrParser, f: &Field) -> bool {
-    // Plural fields are represented as the inverse of a singular relationship from some other
-    // resource; in other words, they are not explicitly stored in this resource itself.
+fn field_is_input(p: &AttrParser, resource: &Ident, plural_resource: &Ident, f: &Field) -> bool {
+    // Relation fields are represented as the inverse of a relationship from some other resource; in
+    // other words, they are not explicitly stored in this resource itself.
     //
     // The ID field is special in that it is auto-generated from an increasing sequence, so it is
     // not required (and, indeed, not allowed) when creating a resource.
     //
-    // Thus, input fields are any that are neither plural nor ID.
-    !field_is_plural(p, f) && !field_is_id(p, f)
+    // Thus, input fields are any that are neither relations nor ID.
+    field_relation(p, resource, plural_resource, f).is_none() && !field_is_id(p, f)
 }
 
 fn skipped_field_default(p: &AttrParser, f: &Field) -> Option<TokenStream> {
@@ -675,4 +852,8 @@ fn skipped_field_default(p: &AttrParser, f: &Field) -> Option<TokenStream> {
 
 fn field_meta_name(f: &Ident) -> Ident {
     Ident::new(&f.to_string().to_case(Case::Pascal), f.span())
+}
+
+fn default_mod_name(name: &Ident) -> Ident {
+    Ident::new(&name.to_string().to_case(Case::Snake), Span::call_site())
 }

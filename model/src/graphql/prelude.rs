@@ -2,7 +2,6 @@
 
 pub use super::{
     async_graphql::{self, value},
-    backend::Many,
-    type_system::{Id, Resource, Scalar, Type},
-    EmptyMutation, EmptySubscription, Object, Query, Schema, D,
+    type_system::{BelongsTo, Id, Many, Resource, Scalar, Type},
+    EmptyMutation, EmptySubscription, Object, Query, Schema,
 };

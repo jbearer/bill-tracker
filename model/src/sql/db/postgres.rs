@@ -636,7 +636,7 @@ mod test {
             .await
             .unwrap()
             .into_iter()
-            .map(|edge| edge.node)
+            .map(|edge| edge.into_node())
             .collect::<Vec<_>>();
         assert_eq!(page, simples);
 
@@ -654,7 +654,7 @@ mod test {
             .await
             .unwrap()
             .into_iter()
-            .map(|edge| edge.node)
+            .map(|edge| edge.into_node())
             .collect::<Vec<_>>();
         assert_eq!(page, &simples[1..]);
 
@@ -670,7 +670,7 @@ mod test {
             .await
             .unwrap()
             .into_iter()
-            .map(|edge| edge.node)
+            .map(|edge| edge.into_node())
             .collect::<Vec<_>>();
         assert_eq!(
             page,

@@ -10,18 +10,86 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use take_mut::take;
 
+enum Relation<'a> {
+    ManyToOne {
+        /// The field on the target resource that identifies the owning object.
+        inverse: Column<'a>,
+        /// The owner whose targets we want.
+        owner: gql::Id,
+    },
+    ManyToMany,
+}
+
 /// Search for items of resource `T` matching `filter`.
 pub async fn execute<C: Connection, T: gql::Resource>(
     conn: &C,
     filter: Option<T::Predicate>,
 ) -> Result<Vec<T>, Error> {
+    execute_and_filter(conn, filter, None).await
+}
+
+/// Load the targets of a [`Relation`](gql::Relation).
+pub async fn load_relation<C: Connection, R: gql::Relation>(
+    conn: &C,
+    owner: &R::Owner,
+    filter: Option<<R::Target as gql::Type>::Predicate>,
+) -> Result<Vec<R::Target>, Error> {
+    // Match on the type of the relation. Many-to-one relations are handled via a simple filter.
+    // Many-to-many relations are more complicated because we have to go through a join table.
+    struct Visitor<'a, T>(&'a T);
+
+    impl<'a, T: gql::Resource> gql::RelationVisitor<T> for Visitor<'a, T> {
+        type Output = Relation<'static>;
+
+        fn visit_many_to_one<R: gql::ManyToOneRelation<Owner = T>>(&mut self) -> Self::Output {
+            Relation::ManyToOne {
+                inverse: field_column::<R::Inverse>(),
+                owner: *self.0.get::<T::Id>(),
+            }
+        }
+
+        fn visit_many_to_many<R: gql::ManyToManyRelation<Owner = T>>(&mut self) -> Self::Output {
+            Relation::ManyToMany
+        }
+    }
+
+    let relation = R::visit(&mut Visitor(owner));
+    execute_and_filter(conn, filter, Some(relation)).await
+}
+
+/// Search for items of resource `T` matching `filter`.
+///
+/// Optionally, restrict output to items in a relation.
+async fn execute_and_filter<C: Connection, T: gql::Resource>(
+    conn: &C,
+    filter: Option<T::Predicate>,
+    relation: Option<Relation<'_>>,
+) -> Result<Vec<T>, Error> {
+    // Traverse the resource and map its fields to tables and columns.
     let table = table_name::<T>();
     let mut columns = ColumnMap::new::<T>();
     let select = columns.columns.clone();
+
+    // Select the columns we need to reconstruct this resource from the query results and apply the
+    // `filter`.
     let mut query = conn.select(&select, &table);
     if let Some(predicate) = filter {
         query = compile_predicate::<_, T>(&mut columns, query, predicate);
     }
+
+    // Filter down to just the relation of interest.
+    match relation {
+        Some(Relation::ManyToOne { inverse, owner }) => {
+            // We want all the objects in the target resource where the inverse of the relation (the
+            // field that indicates the owner of the target) matches the ID of the owning object.
+            query = query.filter(inverse, "=", owner.into());
+        }
+        Some(Relation::ManyToMany) => {
+            unimplemented!("many-to-many relations");
+        }
+        None => {}
+    }
+
     query = query.clauses(std::mem::take(&mut columns.joins).into_values());
     let rows = query.many().await.map_err(Error::sql)?;
     rows.iter().map(|row| columns.parse_row(row)).collect()
@@ -216,8 +284,12 @@ fn compile_predicate<'a, 'b, Q: Select<'a>, T: gql::Resource>(
             }
         }
 
-        fn visit_plural_field_in_place<F: gql::PluralField<Resource = T>>(&mut self) {
-            unimplemented!("plural fields")
+        fn visit_many_to_one_in_place<R: gql::ManyToOneRelation<Owner = T>>(&mut self) {
+            unimplemented!("relations predicates")
+        }
+
+        fn visit_many_to_many_in_place<R: gql::ManyToManyRelation<Owner = T>>(&mut self) {
+            unimplemented!("relations predicates")
         }
 
         fn end(self) -> Q {

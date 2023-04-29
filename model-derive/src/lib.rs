@@ -9,30 +9,32 @@ mod helpers;
 /// Derive an implementation of `Resource`, and related items, for a struct.
 ///
 /// This macro will derive an implementation of `Resource` for a struct, along with all of the
-/// necessary types to describe the resource's predicate and plural predicate. It will also generate
-/// an `async_graphql` `#[Object]` `impl` block with resolvers for each of the structs fields.
+/// necessary types to describe the resource's predicates, fields and relations. It will also
+/// generate an `async_graphql` `#[Object]` `impl` block with resolvers for each of the structs
+/// fields.
 ///
 /// Specifically, the following items are generated:
-/// * An `#[Object]` `impl` block with a resolver for each field. For singular fields, the resolver
+/// * An `#[Object]` `impl` block with a resolver for each field. For regular fields, the resolver
 ///   simply returns a reference to the field, which must be an `OutputType`. You can use the
 ///   [`skip`](#field-attributes) attribute to avoid generating the resolver for fields which are
-///   not output types. For plural fields, the resolver is paginated: it takes Relay-style paging
+///   not output types. For relations, the resolver is paginated: it takes Relay-style paging
 ///   arguments and loads the appropriate page of results on demand.
 /// * A unit struct for each field of the original struct, containing metadata about the field via
-///   the `Field` or `PluralField` trait. These are generated in a nested module called `fields`.
+///   the `Field` or `Relation` trait. These are generated in a nested module called `fields`.
 /// * An input type for the struct, which contains only the struct's input fields, with references
-///   to other resources replaced by the resource ID.
+///   to other resources replaced by the resource ID and relations replaced by a placeholder (since
+///   they are loaded later, on demand).
 /// * A _has_ predicate, which is a GraphQL input type allowing the client to apply a filter to any
 ///   of the struct's fields.
-/// * A _singular predicate_ used to filter items of this resource. The predicate is an enum with
-///   one variant for the _has_ predicate and, if the struct has a [`primary`](#field-attributes),
-///   another variant to filter directly by the primary field.
+/// * A _predicate_ used to filter items of this resource. The predicate is an enum with one variant
+///   for the _has_ predicate and, if the struct has a [`primary`](#field-attributes) field, another
+///   variant to filter directly by the primary field.
 /// * A _quantified predicate_ which applies to a collection of items of this resource by requiring
-///   that a certain number of items in the collection match the _singular predicate_.
-/// * A _plural predicate_ which applies to a collection of items of this resource. The plural
+///   that a certain number of items in the collection match the _predicate_.
+/// * A _relation predicate_ which applies to a collection of items of this resource. The relation
 ///   predicate is an enum which has variants requiring that at least or at most _n_ items match a
-///   singular predicate, that any, all, or none items match a singular predicate, and, if the
-///   struct has a primary field, that the collection includes a given value of the primary field.
+///   predicate, that any, all, or none items match a predicate, and, if the struct has a primary
+///   field, that the collection includes a given value of the primary field.
 ///
 /// All of these items are placed in a module with the same visibility as the original struct. The
 /// items have the same visibility as the original struct, unless the original struct is private, in
@@ -55,14 +57,23 @@ mod helpers;
 /// #[derive(Clone, Resource)]
 /// struct MyResource {
 ///     id: Id,
-///     /// A singular field.
+///     /// A regular field.
 ///     #[resource(primary)]
-///     singular: u64,
-///     /// A plural field.
-///     plural: Many<D, u64>,
+///     field: u64,
+///     /// A relation.
+///     relateds: Many<Related>,
 ///     /// A field that is not exposed to GraphQL.
 ///     #[resource(skip)]
 ///     extra: WeirdType,
+/// }
+///
+/// /// A resource with a relation to the first resource.
+/// #[derive(Clone, Resource)]
+/// struct Related {
+///     id: Id,
+///     #[resource(primary)]
+///     name: String,
+///     my_resources: Many<MyResource>,
 /// }
 ///
 /// #[derive(Clone, Default)]
@@ -79,14 +90,21 @@ mod helpers;
 /// # struct MyResource {
 /// #     id: Id,
 /// #     #[resource(primary)]
-/// #     singular: u64,
-/// #     plural: Many<D, u64>,
+/// #     field: u64,
+/// #     relateds: Many<Related>,
 /// #     #[resource(skip)]
 /// #     extra: WeirdType,
 /// # }
+/// # #[derive(Clone, Resource)]
+/// # struct Related {
+/// #     id: Id,
+/// #     #[resource(primary)]
+/// #     name: String,
+/// #     my_resources: Many<MyResource>,
+/// # }
 /// # #[derive(Clone, Default)]
 /// # struct WeirdType;
-/// use model::graphql::{backend::Connection, EmptyFields, EmptyMutation, EmptySubscription};
+/// use model::graphql::{backend::Connection, EmptyFields};
 ///
 /// struct Query;
 ///
@@ -98,8 +116,11 @@ mod helpers;
 ///     ) -> MyResource {
 ///         MyResource {
 ///             id: 0,
-///             singular: 0,
-///             plural: Many::<D, u64>::empty(EmptyFields),
+///             field: 0,
+///             // At first, we just return a placeholder for relations. If this relation is
+///             // requested in the GraphQL result set, we will load it on-demand in a separate
+///             // operation.
+///             relateds: Many::default(),
 ///             extra: WeirdType,
 ///         }
 ///     }
@@ -110,19 +131,19 @@ mod helpers;
 ///
 /// // Query by field.
 /// schema
-///     .execute("{
+///     .execute(r#"{
 ///         myResource(
 ///             where: {
 ///                 has: {
-///                     plural: {
-///                         any: { is: { lit: 0 } }
+///                     relateds: {
+///                         any: { is: { is: { lit: "foo" } } }
 ///                     }
 ///                 }
 ///             }
 ///         ) {
-///             singular
+///             field
 ///         }
-///     }")
+///     }"#)
 ///     .await
 ///     .into_result()
 ///     .unwrap();
@@ -135,7 +156,7 @@ mod helpers;
 ///                 is: { is: { lit: 0 } }
 ///             }
 ///         ) {
-///             singular
+///             field
 ///         }
 ///     }")
 ///     .await
@@ -158,8 +179,7 @@ mod helpers;
 /// | Attribute     | Description                                             | Arg    | Required |
 /// |---------------|---------------------------------------------------------|---------|----------|
 /// | id            | Use this field as the ID for this resource. Each resource must have exactly one ID field of type `Id`. This attribute can be omitted if the field's type is explicitly `Id` (but the macro is required if, e.g., the type of the field is a type alias). | n/a | yes |
-/// | plural        | Mark this as a plural field. By default, any field with type `Many<...>` is considered plural. This attribute can be used to pluralize a field with a different type or type alias. | n/a | no |
-/// | plural        | Explicitly set whether this field is plural or not by providing a `bool` literal. This can be used to override implicitly plural types like `Many`. | bool | no |
+/// | inverse       | Name the field or relation on the target type of this relation which is the inverse of this relation. The argument should be an identifier naming the corresponding field on the target type. If not specified, the default name dervies from the name of this resource. | ident | no |
 /// | primary       | Mark this field as primary. The primary field may be used in place of the whole object in GraphQL predicates. A struct can have at most one primary field. | n/a | no |
 /// | skip          | Do not include this field in the GraphQL types. The type of the field must implement [`Default`], unless an explicit default initializer is provided (the second form). | n/a | no |
 /// | skip          | Skip a field, reconstructing it with the given expression when loading this object. | expr | no |

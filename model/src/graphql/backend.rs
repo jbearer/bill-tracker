@@ -9,12 +9,54 @@
 //! trait by means of its associated types.
 
 use super::{
-    connection::{CursorType, Edge},
-    type_system::{Resource, Type},
-    EmptyFields, ObjectType,
+    connection::{self, CursorType},
+    type_system::{Relation, Resource, Type},
+    EmptyFields, ObjectType, OutputType,
 };
 use async_trait::async_trait;
 use std::error::Error;
+
+/// And edge in a connection, connecting the owner of the connection to another object.
+///
+/// The edge has
+/// * a cursor, which can be used for pagination, of type `C`
+/// * a node, of resource type `T`
+/// * additional fields of type `E`
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Edge<C, T, E> {
+    cursor: C,
+    node: T,
+    fields: E,
+}
+
+impl<C, T, E> Edge<C, T, E> {
+    /// Construct an edge with the given cursor, node, and additional data.
+    pub fn with_additional_fields(cursor: C, node: T, fields: E) -> Self {
+        Self {
+            cursor,
+            node,
+            fields,
+        }
+    }
+
+    /// Get the cursor indicating this edge's position in the connection.
+    pub fn cursor(&self) -> &C {
+        &self.cursor
+    }
+
+    /// Get the object this edge connects to.
+    pub fn into_node(self) -> T {
+        self.node
+    }
+}
+
+impl<C: CursorType + Send + Sync, T: OutputType, E: ObjectType> From<Edge<C, T, E>>
+    for connection::Edge<C, T, E>
+{
+    fn from(edge: Edge<C, T, E>) -> Self {
+        Self::with_additional_fields(edge.cursor, edge.node, edge.fields)
+    }
+}
 
 /// A Relay-style paginated connection to a collection of objects.
 ///
@@ -36,7 +78,7 @@ pub trait Connection<C> {
     fn has_previous(&self, cursor: &Self::Cursor) -> bool;
 
     /// Get the additional connection-level fields.
-    fn fields(&self) -> &C;
+    fn into_fields(self) -> C;
 }
 
 /// A source of data which can be served by the GraphQL API.
@@ -53,10 +95,17 @@ pub trait DataSource {
     /// Errors reported while attempting to load data.
     type Error: Error;
 
+    /// Load the targets of a [`Relation`].
+    async fn load_relation<R: Relation>(
+        &self,
+        owner: &R::Owner,
+        filter: Option<<R::Target as Type>::Predicate>,
+    ) -> Result<Paginated<Self, R::Target>, Self::Error>;
+
     /// Load a page from a paginated connection.
     async fn load_page<T: Type, C: ObjectType, E: Clone + ObjectType>(
         &self,
-        conn: &Self::Connection<T, C, E>,
+        conn: &Paginated<Self, T, C, E>,
         page: PageRequest<Cursor<Self, T, C, E>>,
     ) -> Result<Vec<Edge<Cursor<Self, T, C, E>, T, E>>, Self::Error>;
 
@@ -67,7 +116,7 @@ pub trait DataSource {
     async fn query<T: Resource>(
         &self,
         filter: Option<T::ResourcePredicate>,
-    ) -> Result<Many<Self, T>, Self::Error>;
+    ) -> Result<Paginated<Self, T>, Self::Error>;
 
     /// Insert new items into the database.
     async fn insert<T: Resource, I>(&mut self, inputs: I) -> Result<(), Self::Error>
@@ -89,9 +138,9 @@ pub struct PageRequest<Cursor> {
     pub before: Option<Cursor>,
 }
 
-/// A one-to-many or many-to-many relationship to another [`Resource`].
-pub type Many<D, T, C = EmptyFields, E = EmptyFields> = <D as DataSource>::Connection<T, C, E>;
+/// A paginated list of objects.
+pub type Paginated<D, T, C = EmptyFields, E = EmptyFields> = <D as DataSource>::Connection<T, C, E>;
 
-/// An index into [`Many`].
+/// An index into a [`Paginated`] list of objects.
 pub type Cursor<D, T, C = EmptyFields, E = EmptyFields> =
-    <Many<D, T, C, E> as Connection<C>>::Cursor;
+    <Paginated<D, T, C, E> as Connection<C>>::Cursor;

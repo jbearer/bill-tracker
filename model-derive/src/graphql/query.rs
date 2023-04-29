@@ -57,7 +57,7 @@ fn generate_struct(name: Ident, attrs: Vec<Attribute>) -> TokenStream {
                 before: Option<String>,
                 first: Option<usize>,
                 last: Option<usize>,
-            ) -> Result<Connection<Cursor<D, #ty>, #ty>> {
+            ) -> Result<Connection<Cursor<D, #ty>, #ty, EmptyFields, EmptyFields>> {
                 todo!()
             }
         }

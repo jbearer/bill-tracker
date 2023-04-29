@@ -12,11 +12,11 @@ pub struct State {
     /// The full name of this state.
     name: String,
     /// Bills introduced in this state.
-    bills: Many<D, Bill>,
+    bills: BelongsTo<Bill>,
     /// Legislators serving in this state.
-    legislators: Many<D, Legislator>,
+    legislators: BelongsTo<Legislator>,
     /// Districts making up this state.
-    districts: Many<D, District>,
+    districts: BelongsTo<District>,
 }
 
 /// A subdivision of a [`State`] with its own representatives in the state legislature.
@@ -36,7 +36,7 @@ pub struct District {
     /// precise but easier to understand than the `name`.
     locale: String,
     /// Representatives of this district in the state legislature.
-    representatives: Many<D, Legislator>,
+    representatives: BelongsTo<Legislator>,
 }
 
 /// A piece of legislation.
@@ -57,9 +57,10 @@ pub struct Bill {
     /// The state in which this bill was introduced.
     state: State,
     /// Legislators sponsoring the bill.
-    sponsors: Many<D, Legislator>,
+    #[resource(inverse(sponsored_bills))]
+    sponsors: Many<Legislator>,
     /// Issues that the bill relates to.
-    issues: Many<D, Issue>,
+    issues: Many<Issue>,
 }
 
 /// A state lawmaker.
@@ -75,7 +76,8 @@ pub struct Legislator {
     /// The legislator's political party.
     party: Party,
     /// Bills the legislator has sponsored.
-    sponsored_bills: Many<D, Bill>,
+    #[resource(inverse(sponsors))]
+    sponsored_bills: Many<Bill>,
 }
 
 /// A political party.
@@ -92,7 +94,7 @@ pub struct Party {
     /// The full name of the party.
     name: String,
     /// State lawmakers who are members of this party.
-    members: Many<D, Legislator>,
+    members: BelongsTo<Legislator>,
 }
 
 /// A political issue.
@@ -102,7 +104,7 @@ pub struct Issue {
     /// A short name for the issue.
     name: String,
     /// Bills pertaining to this issue.
-    bills: Many<D, Bill>,
+    bills: Many<Bill>,
 }
 
 /// Entrypoint for read-only GraphQL queries.

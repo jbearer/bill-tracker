@@ -27,10 +27,10 @@ fn register_resource<'a, C: Connection, T: gql::Resource>(
         let constraints = T::describe_fields(&mut ColumnBuilder { conn, dependencies });
         let columns = constraints.clone().unzip().0;
 
-        // A plural field is implemented as a foreign key on another table referencing this one, so
-        // for this table, we have nothing to do. But we still have to traverse the referenced type
-        // and make sure all the appropriate tables are created.
-        T::describe_plural_fields(&mut ColumnTraverser { conn, dependencies });
+        // A relation is implemented as a foreign key on another table referencing this one, so for
+        // this table, we have nothing to do. But we still have to traverse the referenced type and
+        // make sure all the appropriate tables are created.
+        T::describe_relations(&mut ColumnTraverser { conn, dependencies });
 
         // Separate the constraints which can be added immediately (those which are local to this
         // table) and those which must be deferred (those which reference another table that might
@@ -124,39 +124,17 @@ struct ColumnTraverser<'a, 'd, C> {
     dependencies: &'d mut Dependencies<'a>,
 }
 
-impl<'a, 'd, C: Connection, T: gql::Resource> gql::PluralFieldVisitor<T>
+impl<'a, 'd, C: Connection, T: gql::Resource> gql::RelationVisitor<T>
     for ColumnTraverser<'a, 'd, C>
 {
     type Output = ();
 
-    fn visit<F: gql::PluralField<Resource = T>>(&mut self) -> Self::Output {
-        struct Visitor<'a, 'd, C> {
-            conn: &'a C,
-            dependencies: &'d mut Dependencies<'a>,
-        }
+    fn visit_many_to_one<R: gql::ManyToOneRelation<Owner = T>>(&mut self) -> Self::Output {
+        register_resource::<C, R::Target>(self.conn, self.dependencies);
+    }
 
-        impl<'a, 'd, C: Connection, T: gql::Type> gql::Visitor<T> for Visitor<'a, 'd, C> {
-            type Output = ();
-
-            fn resource(self) -> Self::Output
-            where
-                T: gql::Resource,
-            {
-                // If the field is a reference to another table, make sure that table is registered.
-                register_resource::<C, T>(self.conn, self.dependencies);
-            }
-
-            fn scalar(self) -> Self::Output
-            where
-                T: gql::Scalar,
-            {
-            }
-        }
-
-        <F::Type as gql::PluralType>::Singular::describe(Visitor {
-            conn: self.conn,
-            dependencies: self.dependencies,
-        })
+    fn visit_many_to_many<R: gql::ManyToManyRelation<Owner = T>>(&mut self) -> Self::Output {
+        register_resource::<C, R::Target>(self.conn, self.dependencies);
     }
 }
 
@@ -239,7 +217,7 @@ impl<'a> Dependencies<'a> {
 mod test {
     use super::*;
     use crate::sql::db::mock;
-    use gql::{Id, Resource};
+    use gql::{BelongsTo, Id, Resource};
 
     #[derive(Clone, Debug, PartialEq, Eq, Resource)]
     struct Simple {
@@ -290,6 +268,45 @@ mod test {
             [
                 SchemaColumn::new("id", Type::Serial),
                 SchemaColumn::new("simple", Type::Int4),
+            ]
+        );
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Parent {
+        id: Id,
+        name: String,
+        children: BelongsTo<Child>,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    #[resource(plural(Children))]
+    struct Child {
+        id: Id,
+        parent: Parent,
+    }
+
+    #[async_std::test]
+    async fn test_many_to_one() {
+        let db = mock::Connection::create();
+        execute::<_, Parent>(&db).await.unwrap();
+        let schema = db.schema().await;
+
+        // Ensure the dependency table `children` was created.
+        assert_eq!(
+            schema["children"],
+            [
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("parent", Type::Int4),
+            ]
+        );
+
+        // Check the table with the relation, which does not explicitly reference the children.
+        assert_eq!(
+            schema["parents"],
+            [
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("name", Type::Text)
             ]
         );
     }

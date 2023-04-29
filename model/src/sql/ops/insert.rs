@@ -47,7 +47,7 @@ mod test {
         },
         typenum::{U2, U3},
     };
-    use gql::{Id, Resource};
+    use gql::{BelongsTo, Id, Resource};
 
     /// A simple test resource with scalar fields.
     #[derive(Clone, Debug, PartialEq, Eq, Resource)]
@@ -176,5 +176,91 @@ mod test {
                 }
             }]
         );
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    struct Parent {
+        id: Id,
+        name: String,
+        children: BelongsTo<Child>,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    #[resource(plural(Children))]
+    struct Child {
+        id: Id,
+        parent: Parent,
+    }
+
+    #[async_std::test]
+    async fn test_many_to_one() {
+        let db = mock::Connection::create();
+        db.create_table::<U2>(
+            "children",
+            array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("parent", Type::Int4),
+            ],
+        )
+        .await
+        .unwrap();
+        db.create_table::<U2>(
+            "parents",
+            array![SchemaColumn;
+                SchemaColumn::new("id", Type::Serial),
+                SchemaColumn::new("name", Type::Text),
+            ],
+        )
+        .await
+        .unwrap();
+
+        // First we have to insert something to own.
+        ops::insert::execute::<_, Parent>(&db, [parent::ParentInput { name: "foo".into() }])
+            .await
+            .unwrap();
+
+        // Now insert several things that own the first resource.
+        ops::insert::execute::<_, Child>(
+            &db,
+            [
+                child::ChildInput { parent: 1 },
+                child::ChildInput { parent: 1 },
+            ],
+        )
+        .await
+        .unwrap();
+
+        // Read back the parent.
+        let parent = ops::select::execute::<_, Parent>(&db, None)
+            .await
+            .unwrap()
+            .remove(0);
+        assert_eq!(
+            parent,
+            Parent {
+                id: 1,
+                name: "foo".into(),
+                children: Default::default(),
+            }
+        );
+
+        // Get its children.
+        let children =
+            ops::select::load_relation::<_, parent::fields::Children>(&db, &parent, None)
+                .await
+                .unwrap();
+        assert_eq!(
+            children,
+            [
+                Child {
+                    id: 1,
+                    parent: parent.clone()
+                },
+                Child {
+                    id: 2,
+                    parent: parent.clone()
+                }
+            ]
+        )
     }
 }

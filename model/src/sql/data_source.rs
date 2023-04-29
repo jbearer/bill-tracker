@@ -2,9 +2,8 @@
 
 use super::{db, ops};
 use crate::graphql::{
-    backend::{self as gql, Many, PageRequest},
-    connection::Edge,
-    type_system::{PluralType, Resource, Type},
+    backend::{self as gql, Edge, PageRequest, Paginated},
+    type_system::{Relation, Resource, Type},
     EmptyFields, ObjectType,
 };
 use async_trait::async_trait;
@@ -35,9 +34,18 @@ impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSour
     type Connection<T: Type, C: ObjectType, E: ObjectType> = SqlConnection<T, C, E>;
     type Error = ops::Error;
 
+    async fn load_relation<R: Relation>(
+        &self,
+        owner: &R::Owner,
+        filter: Option<<R::Target as Type>::Predicate>,
+    ) -> Result<Paginated<Self, R::Target>, Self::Error> {
+        let objects = ops::select::load_relation::<Db, R>(&self.0, owner, filter).await?;
+        Ok(SqlConnection::new(objects))
+    }
+
     async fn load_page<T: Type, C: ObjectType, E: Clone + ObjectType>(
         &self,
-        conn: &Self::Connection<T, C, E>,
+        conn: &Paginated<Self, T, C, E>,
         page: PageRequest<usize>,
     ) -> Result<Vec<Edge<usize, T, E>>, Self::Error> {
         Ok(conn.load(page))
@@ -50,18 +58,9 @@ impl<Db: 'static + db::Connection + Send + Sync> gql::DataSource for SqlDataSour
     async fn query<T: Resource>(
         &self,
         filter: Option<T::ResourcePredicate>,
-    ) -> Result<Many<Self, T>, Self::Error> {
+    ) -> Result<Paginated<Self, T>, Self::Error> {
         let objects = ops::select::execute(&self.0, filter).await?;
-        Ok(SqlConnection {
-            fields: EmptyFields,
-            edges: objects
-                .into_iter()
-                .map(|obj| SqlEdge {
-                    node: obj,
-                    fields: EmptyFields,
-                })
-                .collect(),
-        })
+        Ok(SqlConnection::new(objects))
     }
 
     async fn insert<T: Resource, I>(&mut self, inputs: I) -> Result<(), Self::Error>
@@ -79,6 +78,24 @@ pub struct SqlConnection<T: Type, C, E: ObjectType> {
     fields: C,
     // For now we just keep all items in the connection in memory. Later we will add pagination.
     edges: Vec<SqlEdge<T, E>>,
+}
+
+impl<T: Type> SqlConnection<T, EmptyFields, EmptyFields> {
+    fn new<I>(objects: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        Self {
+            fields: EmptyFields,
+            edges: objects
+                .into_iter()
+                .map(|obj| SqlEdge {
+                    node: obj,
+                    fields: EmptyFields,
+                })
+                .collect(),
+        }
+    }
 }
 
 impl<T: Type, C, E: ObjectType> gql::Connection<C> for SqlConnection<T, C, E> {
@@ -99,13 +116,9 @@ impl<T: Type, C, E: ObjectType> gql::Connection<C> for SqlConnection<T, C, E> {
         *cursor > 0
     }
 
-    fn fields(&self) -> &C {
-        &self.fields
+    fn into_fields(self) -> C {
+        self.fields
     }
-}
-
-impl<T: Type, C, E: ObjectType> PluralType for SqlConnection<T, C, E> {
-    type Singular = T;
 }
 
 impl<T: Type, C, E: Clone + ObjectType> SqlConnection<T, C, E> {
