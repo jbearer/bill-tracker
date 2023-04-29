@@ -7,9 +7,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  POSTGRES_TESTS: 1
-
 jobs:
   build:
     runs-on: ubuntu-latest

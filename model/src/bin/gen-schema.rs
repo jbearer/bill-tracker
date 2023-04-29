@@ -6,5 +6,5 @@ struct Options;
 
 fn main() {
     Options::parse();
-    println!("{}", model::graphql::schema::generate().sdl());
+    println!("{}", model::schema::generate().sdl());
 }

@@ -7,7 +7,6 @@ The project is organized as followed:
 * [clients](clients) contains various client implementations for the app.
     - [browser](clients/browser) a browser-based client application, built with React/Typescript.
 * [model](model) defines the data model provided by the server. It is a Rust crate.
-* [model-derive](model-derive) defines derive macros for use with the `model` crate.
 * [server](server) implements the server application which makes the data queryable for clients.
 
 # Development
@@ -46,13 +45,6 @@ cargo build --workspace
 ```
 
 Use `cargo clippy` to run the linter and `cargo test` to run unit tests.
-
-Note that some of the Cargo tests require a test PostgreSQL server to be running. You can use
-`bin/start-test-db` to start a test server. You may need to use `sudo`. Once the server is
-running, set `POSTGRES_TESTS=1` to enable these tests, and then run `cargo test` as usual.
-`POSTGRES_TESTS_PORT` can be used to change the port that the PostgreSQL server runs on (the default
-is 5432, the default for Postgres in general). You can use `POSTGRES_TESTS_PASSWORD` to change the
-password for the test database (teh default is `password`).
 
 ## Building the React client
 
