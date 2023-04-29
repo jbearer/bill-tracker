@@ -1055,16 +1055,6 @@
 <a href="#1055" id="1055">1055</a>
 <a href="#1056" id="1056">1056</a>
 <a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
-<a href="#1059" id="1059">1059</a>
-<a href="#1060" id="1060">1060</a>
-<a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
-<a href="#1066" id="1066">1066</a>
-<a href="#1067" id="1067">1067</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Type system for a relational GraphQL API.
 //!
 //! A relational GraphQL API is one which allows the client to filter results based on complex
@@ -1088,19 +1078,19 @@
 //!   provided by this module, and these cannot be extended.
 //! * A [`Resource`] is a subtype of [`Type`] which corresponds to a GraphQL object type or a table
 //!   in a relational database. Unlike a [`Scalar`], whose only observable property is its value, a
-//!   [`Resource`] can have many named properties of [`Scalar`] type as well as relations to other
-//!   [`Resource`] types. These relations can be singular (one-to-one or many-to-one) or plural
-//!   (one-to-many or many-to-many). They can be used in queries to easily select objects which
-//!   related to a selected resource and to prune results based on a property of a relationship
-//!   between resource.
+//!   [`Resource`] can have many named [`Field`]s as well as [`Relation`]s to other [`Resource`]
+//!   types. These relations can be used in queries to easily select objects which relate to a
+//!   selected resource and to prune results based on a property of a relationship between resource.
 
 </span><span class="kw">use </span><span class="kw">super</span>::async_graphql <span class="kw">as </span>gql;
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>derive_more::Display;
 <span class="kw">use </span>is_type::Is;
 <span class="kw">use </span>sealed::sealed;
 <span class="kw">use </span>std::any::TypeId;
 <span class="kw">use </span>std::error::Error;
 <span class="kw">use </span>std::fmt::Display;
+<span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">pub use </span>resource::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>scalar::<span class="kw-2">*</span>;
@@ -1124,9 +1114,6 @@
 
     <span class="doccomment">/// A boolean predciate on objects of this type.
     </span><span class="kw">type </span>Predicate: Predicate&lt;<span class="self">Self</span>&gt;;
-
-    <span class="doccomment">/// A predicate on collections of objects of this type.
-    </span><span class="kw">type </span>PluralPredicate: PluralPredicate&lt;<span class="self">Self</span>&gt;;
 
     <span class="doccomment">/// The representation of values of this type when creating a new object.
     ///
@@ -1163,40 +1150,6 @@
     </span><span class="kw">fn </span>scalar(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output
     <span class="kw">where
         </span>T: Scalar;
-}
-
-<span class="doccomment">/// The type of a collection of items of a given [`Type`].
-</span><span class="kw">pub trait </span>PluralType {
-    <span class="doccomment">/// The type of an item in this collection.
-    </span><span class="kw">type </span>Singular: Type;
-}
-
-<span class="doccomment">/// A boolean predicate on a [`PluralType`] consisting of items of type `T`.
-</span><span class="kw">pub trait </span>PluralPredicate&lt;T: Type&gt;: gql::InputType {
-    <span class="doccomment">/// Compile this predicate into a form which the backend can execute.
-    ///
-    /// When a backend data source executes a GraphQL query, it must compile each predicate in the
-    /// query into a form which can be applied to data in the backend&#39;s particular datda model. The
-    /// backend implementation will construct a [`PluralPredicateCompiler`] which is specific to
-    /// that backend and pass it to [`compile`](Self::compile). The predicate will use the
-    /// backend-agnostic [`PluralPredicateCompiler`] to describe the structure of this predicate and
-    /// instruct the backend on how to compile it.
-    </span><span class="kw">fn </span>compile&lt;C: PluralPredicateCompiler&lt;T&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result;
-}
-
-<span class="doccomment">/// A generic interface to a backend-specific plural predicate compiler.
-///
-/// A [`PluralPredicate`] can use this interface to instruct an arbitrary backend on how to compile
-/// it into a backend-specific format.
-</span><span class="kw">pub trait </span>PluralPredicateCompiler&lt;T: Type&gt; {
-    <span class="doccomment">/// The backend-specific compilation result.
-    </span><span class="kw">type </span><span class="prelude-ty">Result</span>;
-
-    <span class="doccomment">/// A predicate which requires at least `min` objects in the collection to match `pred`.
-    </span><span class="kw">fn </span>at_least(<span class="self">self</span>, min: usize, pred: T::Predicate) -&gt; <span class="self">Self</span>::Result;
-
-    <span class="doccomment">/// A predicate which requires at most `max` objects in the collection to match `pred`.
-    </span><span class="kw">fn </span>at_most(<span class="self">self</span>, max: usize, pred: T::Predicate) -&gt; <span class="self">Self</span>::Result;
 }
 
 <span class="doccomment">/// An error encountered while reconstructing a GraphQL [`Type`] from query results.
@@ -1503,9 +1456,7 @@
             <span class="macro-nonterminal">$visit</span>:ident,
             <span class="macro-nonterminal">$</span><span class="kw">mod</span>:<span class="macro-nonterminal">ident</span>,
             <span class="macro-nonterminal">$pred_name</span>:expr,
-            <span class="macro-nonterminal">$cmp_name</span>:expr,
-            <span class="macro-nonterminal">$quant_name</span>:expr,
-            <span class="macro-nonterminal">$plural_pred_name</span>:expr
+            <span class="macro-nonterminal">$cmp_name</span>:expr
         )),+ $(,)<span class="question-mark">?</span>) =&gt; {
             $(
                 <span class="kw">pub mod </span><span class="macro-nonterminal">$</span><span class="kw">mod </span>{
@@ -1594,65 +1545,8 @@
                         }
                     }
 
-                    <span class="doccomment">/// A predicate which must match a certain quantity of integral scalars.
-                    </span><span class="attr">#[derive(
-                        Clone,
-                        Copy,
-                        Debug,
-                        PartialEq,
-                        Eq,
-                        PartialOrd,
-                        Ord,
-                        Hash,
-                        gql::InputObject,
-                    )]
-                    #[graphql(name = <span class="macro-nonterminal">$quant_name</span>)]
-                    </span><span class="kw">pub struct </span>QuantifiedPredicate {
-                        <span class="doccomment">/// The minimum or maximum number of items which must match.
-                        </span>quantity: usize,
-                        <span class="doccomment">/// The predicate to match against specific items.
-                        </span>predicate: Predicate,
-                    }
-
-                    <span class="doccomment">/// A predicate used to filter collections of integral scalars.
-                    </span><span class="attr">#[derive(
-                        Clone,
-                        Copy,
-                        Debug,
-                        PartialEq,
-                        Eq,
-                        PartialOrd,
-                        Ord,
-                        Hash,
-                        gql::OneofObject,
-                    )]
-                    #[graphql(name = <span class="macro-nonterminal">$plural_pred_name</span>)]
-                    </span><span class="kw">pub enum </span>PluralPredicate {
-                        <span class="doccomment">/// Matches if at least some number of items in the collection match a
-                        /// predicate.
-                        </span>AtLeast(QuantifiedPredicate),
-                        <span class="doccomment">/// Matches if at most some number of items in the collection match a
-                        /// predicate.
-                        </span>AtMost(QuantifiedPredicate),
-                        <span class="doccomment">/// Matches if at any items in the collection match a predicate.
-                        </span>Any(Predicate),
-                        <span class="doccomment">/// Matches if all items in the collection match a predicate.
-                        </span>All(Predicate),
-                        <span class="doccomment">/// Matches if no items in the collection match a predicate.
-                        </span><span class="prelude-val">None</span>(Predicate),
-                        <span class="doccomment">/// Matches if the collection includes the specified value.
-                        </span>Includes(Value&lt;<span class="macro-nonterminal">$t</span>&gt;),
-                    }
-
-                    <span class="kw">impl </span><span class="kw">super</span>::PluralPredicate&lt;<span class="macro-nonterminal">$t</span>&gt; <span class="kw">for </span>PluralPredicate {
-                        <span class="kw">fn </span>compile&lt;C: PluralPredicateCompiler&lt;<span class="macro-nonterminal">$t</span>&gt;&gt;(<span class="self">self</span>, _compiler: C) -&gt; C::Result {
-                            <span class="macro">todo!</span>()
-                        }
-                    }
-
                     <span class="kw">impl </span>Type <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
                         <span class="kw">type </span>Predicate = Predicate;
-                        <span class="kw">type </span>PluralPredicate = PluralPredicate;
 
                         <span class="kw">type </span>Input = <span class="self">Self</span>;
 
@@ -1686,10 +1580,10 @@
     }
 
     <span class="macro">int_scalars! </span>{
-        (i32, visit_i32, i32_scalar, <span class="string">&quot;i32Predicate&quot;</span>, <span class="string">&quot;i32Cmp&quot;</span>, <span class="string">&quot;Quantifiedi32Predicate&quot;</span>, <span class="string">&quot;i32sPredicate&quot;</span>),
-        (i64, visit_i64, i64_scalar, <span class="string">&quot;i64Predicate&quot;</span>, <span class="string">&quot;i64Cmp&quot;</span>, <span class="string">&quot;Quantifiedi64Predicate&quot;</span>, <span class="string">&quot;i64sPredicate&quot;</span>),
-        (u32, visit_u32, u32_scalar, <span class="string">&quot;u32Predicate&quot;</span>, <span class="string">&quot;u32Cmp&quot;</span>, <span class="string">&quot;Quantifiedu32Predicate&quot;</span>, <span class="string">&quot;u32sPredicate&quot;</span>),
-        (u64, visit_u64, u64_scalar, <span class="string">&quot;u64Predicate&quot;</span>, <span class="string">&quot;u64Cmp&quot;</span>, <span class="string">&quot;Quantifiedu64Predicate&quot;</span>, <span class="string">&quot;u64sPredicate&quot;</span>),
+        (i32, visit_i32, i32_scalar, <span class="string">&quot;i32Predicate&quot;</span>, <span class="string">&quot;i32Cmp&quot;</span>),
+        (i64, visit_i64, i64_scalar, <span class="string">&quot;i64Predicate&quot;</span>, <span class="string">&quot;i64Cmp&quot;</span>),
+        (u32, visit_u32, u32_scalar, <span class="string">&quot;u32Predicate&quot;</span>, <span class="string">&quot;u32Cmp&quot;</span>),
+        (u64, visit_u64, u64_scalar, <span class="string">&quot;u64Predicate&quot;</span>, <span class="string">&quot;u64Cmp&quot;</span>),
     }
 
     <span class="kw">pub use </span>i32_scalar::Trait <span class="kw">as </span>I32Scalar;
@@ -1774,43 +1668,8 @@
         </span>NE,
     }
 
-    <span class="doccomment">/// A predicate which must match a certain quantity of strings.
-    </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, gql::InputObject)]
-    </span><span class="kw">pub struct </span>QuantifiedStringPredicate {
-        <span class="doccomment">/// The minimum or maximum number of items which must match.
-        </span>quantity: usize,
-        <span class="doccomment">/// The predicate to match against specific items.
-        </span>predicate: StringPredicate,
-    }
-
-    <span class="doccomment">/// A predicate used to filter collections of integral scalars.
-    </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, gql::OneofObject)]
-    </span><span class="kw">pub enum </span>StringsPredicate {
-        <span class="doccomment">/// Matches if at least some number of items in the collection match a
-        /// predicate.
-        </span>AtLeast(QuantifiedStringPredicate),
-        <span class="doccomment">/// Matches if at most some number of items in the collection match a
-        /// predicate.
-        </span>AtMost(QuantifiedStringPredicate),
-        <span class="doccomment">/// Matches if at any items in the collection match a predicate.
-        </span>Any(StringPredicate),
-        <span class="doccomment">/// Matches if all items in the collection match a predicate.
-        </span>All(StringPredicate),
-        <span class="doccomment">/// Matches if no items in the collection match a predicate.
-        </span><span class="prelude-val">None</span>(StringPredicate),
-        <span class="doccomment">/// Matches if the collection includes the specified value.
-        </span>Includes(Value&lt;String&gt;),
-    }
-
-    <span class="kw">impl </span>PluralPredicate&lt;String&gt; <span class="kw">for </span>StringsPredicate {
-        <span class="kw">fn </span>compile&lt;C: PluralPredicateCompiler&lt;String&gt;&gt;(<span class="self">self</span>, _compiler: C) -&gt; C::Result {
-            <span class="macro">todo!</span>()
-        }
-    }
-
     <span class="kw">impl </span>Type <span class="kw">for </span>String {
         <span class="kw">type </span>Predicate = StringPredicate;
-        <span class="kw">type </span>PluralPredicate = StringsPredicate;
 
         <span class="kw">type </span>Input = <span class="self">Self</span>;
 
@@ -1836,10 +1695,9 @@
     <span class="doccomment">//! Resources are complex types in a relational GraphQL API.
     //!
     //! A resource type is akin to an object type in GraphQL or a table in a relational database. It
-    //! has its own fields as well as singular or plural relationships to other resources.
-    //! Collections of items of a particular resource can be filter down using a
-    //! [`ResourcePredicate`]. Entire collections of items of a given resource type can also be
-    //! filtered in or out using a [`PluralPredicate`].
+    //! has its own fields as well as [`Relation`]s to other resources. Collections of items of a
+    //! particular resource can be filter down using a [`ResourcePredicate`]. Entire collections of
+    //! items of a given resource type can also be filtered in or out using a [`RelationPredicate`].
     //!
     //! Users can define their own resources by implementing the [`Resource`] trait and relatives,
     //! or by using the [`macro@Resource`] derive macro.
@@ -1857,10 +1715,10 @@
         // the slightly unwield `Array&lt;T, Self::NumFields&gt;`.
         </span><span class="doccomment">/// The number of singular fields this resource has.
         </span><span class="kw">type </span>NumFields: Length;
-        <span class="doccomment">/// The number of plural fields this resource has.
-        </span><span class="kw">type </span>NumPluralFields: Length;
         <span class="doccomment">/// The number of input fields this resource has.
         </span><span class="kw">type </span>NumInputFields: Length;
+        <span class="doccomment">/// The number of relations this resource has to other resources.
+        </span><span class="kw">type </span>NumRelations: Length;
 
         <span class="doccomment">/// The unique, sequentially increasing ID for this resource.
         </span><span class="kw">type </span>Id: Field&lt;Resource = <span class="self">Self</span>, Type = Id&gt;;
@@ -1871,6 +1729,9 @@
         /// [`ResourcePredicate`](ResourcePredicate) has the more expressive trait bound
         /// [`ResourcePredicate`] instead of the generic [`Predicate`].
         </span><span class="kw">type </span>ResourcePredicate: ResourcePredicate&lt;<span class="self">Self</span>&gt;;
+
+        <span class="doccomment">/// A boolean predicate on a [`Relation`] targeting items of this type.
+        </span><span class="kw">type </span>RelationPredicate: RelationPredicate&lt;<span class="self">Self</span>&gt;;
 
         <span class="doccomment">/// The input used to specify a new object of this type.
         ///
@@ -1894,13 +1755,6 @@
         }
 
         <span class="doccomment">/// Describe the structure and definition of this [`Resource`].
-        ///
-        /// This performs the same operation as [`describe`](Type::describe), but it can be called
-        /// directly with a [`ResourceVisitor`], instead of the more generic [`Visitor`]. This is
-        /// useful when it is known that a [`Type`] is actually a [`Resource`].
-        ///
-        /// It is an invariant that for all `T: Resource`,
-        /// `T::describe(visitor) == T::describe_resource(visitor.resource)`.
         </span><span class="kw">fn </span>describe_resource&lt;V: ResourceVisitor&lt;<span class="self">Self</span>&gt;&gt;(visitor: V) -&gt; V::Output {
             <span class="kw">struct </span>Visitor&lt;V&gt;(V);
 
@@ -1912,17 +1766,21 @@
                 }
             }
 
-            <span class="kw">impl</span>&lt;T: Resource, V: ResourceVisitor&lt;T&gt;&gt; PluralFieldVisitor&lt;T&gt; <span class="kw">for </span>Visitor&lt;V&gt; {
+            <span class="kw">impl</span>&lt;T: Resource, V: ResourceVisitor&lt;T&gt;&gt; RelationVisitor&lt;T&gt; <span class="kw">for </span>Visitor&lt;V&gt; {
                 <span class="kw">type </span>Output = ();
 
-                <span class="kw">fn </span>visit&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
-                    <span class="self">self</span>.<span class="number">0</span>.visit_plural_field_in_place::&lt;F&gt;();
+                <span class="kw">fn </span>visit_many_to_one&lt;R: ManyToOneRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+                    <span class="self">self</span>.<span class="number">0</span>.visit_many_to_one_in_place::&lt;R&gt;();
+                }
+
+                <span class="kw">fn </span>visit_many_to_many&lt;R: ManyToManyRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+                    <span class="self">self</span>.<span class="number">0</span>.visit_many_to_many_in_place::&lt;R&gt;();
                 }
             }
 
             <span class="kw">let </span><span class="kw-2">mut </span>visitor = Visitor(visitor);
             <span class="self">Self</span>::describe_fields(<span class="kw-2">&amp;mut </span>visitor);
-            <span class="self">Self</span>::describe_plural_fields(<span class="kw-2">&amp;mut </span>visitor);
+            <span class="self">Self</span>::describe_relations(<span class="kw-2">&amp;mut </span>visitor);
             visitor.<span class="number">0</span>.end()
         }
 
@@ -1931,15 +1789,15 @@
             visitor: <span class="kw-2">&amp;mut </span>V,
         ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumFields&gt;;
 
-        <span class="doccomment">/// Describe the plural fields of this resource.
-        </span><span class="kw">fn </span>describe_plural_fields&lt;V: PluralFieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
-            visitor: <span class="kw-2">&amp;mut </span>V,
-        ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumPluralFields&gt;;
-
         <span class="doccomment">/// Describe the input fields of this resource.
         </span><span class="kw">fn </span>describe_input_fields&lt;V: InputFieldVisitor&lt;<span class="self">Self</span>&gt;&gt;(
             visitor: <span class="kw-2">&amp;mut </span>V,
         ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumInputFields&gt;;
+
+        <span class="doccomment">/// Describe the relations that this resource has to other resources.
+        </span><span class="kw">fn </span>describe_relations&lt;V: RelationVisitor&lt;<span class="self">Self</span>&gt;&gt;(
+            visitor: <span class="kw-2">&amp;mut </span>V,
+        ) -&gt; Array&lt;V::Output, <span class="self">Self</span>::NumRelations&gt;;
 
         <span class="doccomment">/// The names of this resource&#39;s singular fields.
         </span><span class="kw">fn </span>field_names() -&gt; Array&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="self">Self</span>::NumFields&gt; {
@@ -2059,21 +1917,131 @@
         ) -&gt; <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Type <span class="kw">as </span>Type&gt;::Input;
     }
 
-    <span class="doccomment">/// Metadata about a plural field of a resource.
-    </span><span class="kw">pub trait </span>PluralField: <span class="lifetime">&#39;static </span>{
-        <span class="doccomment">/// The type of the field.
-        </span><span class="kw">type </span>Type: PluralType;
-
-        <span class="doccomment">/// The resource that this field belongs to.
-        </span><span class="kw">type </span>Resource: Resource;
-
-        <span class="doccomment">/// The name of the field.
+    <span class="doccomment">/// Metadata about a relation of a resource.
+    ///
+    /// A relation is like a virtual property of an object. Rather than being represented explicitly
+    /// in the object itself, like a [`Field`], the value of a relation comes from the relationshp
+    /// of the owning object to some other object or objects in the ontology -- the _target_ of the
+    /// relation.
+    ///
+    /// For example, an object of [`Resource`] A might be related to objects of [`Resource`] B by
+    /// a field on `B` which stores the ID of type `A`. This would be a one-to-many relation.
+    ///
+    /// We categorize relations by their _arity_ -- the number of objects on each side of the
+    /// relationship. If any number of objects of one resource can be related to any number of
+    /// objects of another, it is a many-to-many relationship. If an object of one resource is
+    /// related to a unique object of another, but any number of the former can relate to the same
+    /// object of the latter, it is a many-to-one relationship. One-to-one relations are not
+    /// supported.
+    ///
+    /// A useful property of a [`Relation`] is its _inverse_ -- the field or relation on the target
+    /// resource which relates back to this relation. The type of the inverse depends on the arity
+    /// of the relation. In a many-to-many relation, both sides are a relation, so
+    /// [`ManyToManyRelation::Inverse`] implements [`Relation`]. But in a many-to-one relation, each
+    /// object in the target resource (the &quot;many&quot; side) is related to exactly one object in the
+    /// owning resource (the &quot;one&quot; side) by means of a field storing the ID of the owning resource,
+    /// so [`ManyToOneRelation::Inverse`] implements [`Field`].
+    </span><span class="kw">pub trait </span>Relation: <span class="lifetime">&#39;static </span>{
+        <span class="doccomment">/// The resource owning this relation.
+        </span><span class="kw">type </span>Owner: Resource;
+        <span class="doccomment">/// The type of objects in this relation.
+        </span><span class="kw">type </span>Target: Resource;
+        <span class="doccomment">/// The name of this relation.
         </span><span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+        <span class="doccomment">/// Describe this relation to a backend.
+        </span><span class="kw">fn </span>visit&lt;V: RelationVisitor&lt;<span class="self">Self</span>::Owner&gt;&gt;(visitor: <span class="kw-2">&amp;mut </span>V) -&gt; V::Output;
+
+        <span class="doccomment">/// Access the sub-predicate used to filter this relation in a [`ResourcePredicate`].
+        </span><span class="kw">fn </span>get_predicate(
+            predicate: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Owner <span class="kw">as </span>Resource&gt;::ResourcePredicate,
+        ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::Target <span class="kw">as </span>Resource&gt;::RelationPredicate&gt;;
+
+        <span class="doccomment">/// Access the sub-predicate used to filter this relation in a [`ResourcePredicate`].
+        </span><span class="kw">fn </span>get_predicate_mut(
+            predicate: <span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Owner <span class="kw">as </span>Resource&gt;::ResourcePredicate,
+        ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Target <span class="kw">as </span>Resource&gt;::RelationPredicate&gt;;
+
+        <span class="doccomment">/// Take the sub-predicate used to fitler this relation in a [`ResourcePredicate`].
+        ///
+        /// The next time this function, [`get_predicate`](Self::get_predicate), or
+        /// [`get_predicate_mut`](Self::get_predicate_mut) is called on the same relation, it will
+        /// return [`None`], since the field has been taken.
+        </span><span class="kw">fn </span>take_predicate(
+            predicate: <span class="kw-2">&amp;mut </span>&lt;<span class="self">Self</span>::Owner <span class="kw">as </span>Resource&gt;::ResourcePredicate,
+        ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;<span class="self">Self</span>::Target <span class="kw">as </span>Resource&gt;::RelationPredicate&gt;;
     }
 
-    <span class="doccomment">/// The [`PluralPredicate`] used to filter a resource by its [`PluralField`] `F`.
-    </span><span class="kw">pub type </span>PluralFieldPredicate&lt;F&gt; =
-        &lt;&lt;&lt;F <span class="kw">as </span>PluralField&gt;::Type <span class="kw">as </span>PluralType&gt;::Singular <span class="kw">as </span>Type&gt;::PluralPredicate;
+    <span class="doccomment">/// A boolean predicate on a [`Relation`] targeting items of type `T`.
+    </span><span class="kw">pub trait </span>RelationPredicate&lt;T: Resource&gt; {
+        <span class="doccomment">/// Compile this predicate into a form which the backend can execute.
+        ///
+        /// When a backend data source executes a GraphQL query, it must compile each predicate in
+        /// the query into a form which can be applied to data in the backend&#39;s particular datda
+        /// model. For relation predicates, the backend implementation will construct a
+        /// [`RelationPredicateCompiler`] which is specific to that backend and pass it to
+        /// [`compile`](Self::compile). The predicate will use the backend-agnostic
+        /// [`RelationPredicateCompiler`] to describe the structure of this predicate and instruct
+        /// the backend on how to compile it.
+        </span><span class="kw">fn </span>compile&lt;C: RelationPredicateCompiler&lt;T&gt;&gt;(<span class="self">self</span>, compiler: C) -&gt; C::Result;
+    }
+
+    <span class="doccomment">/// A generic interface to a backend-specific relation predicate compiler.
+    ///
+    /// A [`RelationPredicate`] can use this interface to instruct an arbitrary backend on how to
+    /// compile it into a backend-specific format.
+    </span><span class="kw">pub trait </span>RelationPredicateCompiler&lt;T: Type&gt; {
+        <span class="doccomment">/// The backend-specific compilation result.
+        </span><span class="kw">type </span><span class="prelude-ty">Result</span>;
+
+        <span class="doccomment">/// A predicate which requires at least `min` objects in the relation to match `pred`.
+        </span><span class="kw">fn </span>at_least(<span class="self">self</span>, min: usize, pred: T::Predicate) -&gt; <span class="self">Self</span>::Result;
+
+        <span class="doccomment">/// A predicate which requires at most `max` objects in the relation to match `pred`.
+        </span><span class="kw">fn </span>at_most(<span class="self">self</span>, max: usize, pred: T::Predicate) -&gt; <span class="self">Self</span>::Result;
+    }
+
+    <span class="doccomment">/// A many-to-one relation.
+    </span><span class="kw">pub trait </span>ManyToOneRelation: Relation {
+        <span class="doccomment">/// The field on target objects which unique denotes this object as their owner.
+        </span><span class="kw">type </span>Inverse: Field&lt;Type = <span class="self">Self</span>::Owner, Resource = <span class="self">Self</span>::Target&gt;;
+    }
+
+    <span class="doccomment">/// A marker type used in the definition of a resource to declare a [`ManyToOneRelation`].
+    </span><span class="attr">#[derive(Derivative)]
+    #[derivative(
+        Clone(bound = <span class="string">&quot;&quot;</span>),
+        Copy(bound = <span class="string">&quot;&quot;</span>),
+        Debug(bound = <span class="string">&quot;&quot;</span>),
+        Default(bound = <span class="string">&quot;&quot;</span>),
+        PartialEq(bound = <span class="string">&quot;&quot;</span>),
+        Eq(bound = <span class="string">&quot;&quot;</span>),
+        PartialOrd(bound = <span class="string">&quot;&quot;</span>),
+        Ord(bound = <span class="string">&quot;&quot;</span>),
+        Hash(bound = <span class="string">&quot;&quot;</span>)
+    )]
+    </span><span class="kw">pub struct </span>BelongsTo&lt;T: Resource&gt;(PhantomData&lt;<span class="kw">fn</span>(<span class="kw-2">&amp;</span>T)&gt;);
+
+    <span class="doccomment">/// A many-to-many relation.
+    </span><span class="kw">pub trait </span>ManyToManyRelation: Relation {
+        <span class="doccomment">/// The relation on target objects which links them back to this object.
+        </span><span class="kw">type </span>Inverse: Relation&lt;Target = <span class="self">Self</span>::Owner, Owner = <span class="self">Self</span>::Target&gt;;
+    }
+
+    <span class="doccomment">/// A marker type used in the definition of a resource to declare a [`ManyToManyRelation`].
+    </span><span class="attr">#[derive(Derivative)]
+    #[derivative(
+        Clone(bound = <span class="string">&quot;&quot;</span>),
+        Copy(bound = <span class="string">&quot;&quot;</span>),
+        Debug(bound = <span class="string">&quot;&quot;</span>),
+        Default(bound = <span class="string">&quot;&quot;</span>),
+        PartialEq(bound = <span class="string">&quot;&quot;</span>),
+        Eq(bound = <span class="string">&quot;&quot;</span>),
+        PartialOrd(bound = <span class="string">&quot;&quot;</span>),
+        Ord(bound = <span class="string">&quot;&quot;</span>),
+        Hash(bound = <span class="string">&quot;&quot;</span>)
+    )]
+    </span><span class="kw">pub struct </span>Many&lt;T: Resource&gt;(PhantomData&lt;<span class="kw">fn</span>(<span class="kw-2">&amp;</span>T)&gt;);
 
     <span class="doccomment">/// Visitor which allows a [`Resource`] to describe itself to a backend.
     ///
@@ -2092,14 +2060,23 @@
         <span class="doccomment">/// Tell the visitor about a field `F` of type `T`, mutating the visitor.
         </span><span class="kw">fn </span>visit_field_in_place&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
 
-        <span class="doccomment">/// Tell the visitor about a plural field `F` of type `T`.
-        </span><span class="kw">fn </span>visit_plural_field&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-            <span class="self">self</span>.visit_plural_field_in_place::&lt;F&gt;();
+        <span class="doccomment">/// Tell the visitor about a many-to-one relation `R`.
+        </span><span class="kw">fn </span>visit_many_to_one&lt;R: ManyToOneRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+            <span class="self">self</span>.visit_many_to_one_in_place::&lt;R&gt;();
             <span class="self">self
         </span>}
 
-        <span class="doccomment">/// Tell the visitor about a plural field `F` of type `T`, mutating the visitor.
-        </span><span class="kw">fn </span>visit_plural_field_in_place&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+        <span class="doccomment">/// Tell the visitor about a many-to-one relation `R`, mutating the visitor.
+        </span><span class="kw">fn </span>visit_many_to_one_in_place&lt;R: ManyToOneRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+
+        <span class="doccomment">/// Tell the visitor about a many-to-many relation `R`.
+        </span><span class="kw">fn </span>visit_many_to_many&lt;R: ManyToManyRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+            <span class="self">self</span>.visit_many_to_many_in_place::&lt;R&gt;();
+            <span class="self">self
+        </span>}
+
+        <span class="doccomment">/// Tell the visitor about a many-to-many relation `R`, mutating the visitor.
+        </span><span class="kw">fn </span>visit_many_to_many_in_place&lt;R: ManyToManyRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
 
         <span class="doccomment">/// Finish visiting the type and collect the output.
         </span><span class="kw">fn </span>end(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
@@ -2107,20 +2084,11 @@
 
     <span class="doccomment">/// Visitor which allows fields of a [`Resource`] to describe themselves to a backend.
     </span><span class="kw">pub trait </span>FieldVisitor&lt;T: Resource&gt; {
-        <span class="doccomment">/// An output summarizing the results of visiting `T`s singular fields.
+        <span class="doccomment">/// An output summarizing the results of visiting `T`s fields.
         </span><span class="kw">type </span>Output;
 
         <span class="doccomment">/// Tell the visitor about a field `F`.
         </span><span class="kw">fn </span>visit&lt;F: Field&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
-    }
-
-    <span class="doccomment">/// Visitor which allows plural fields of a [`Resource`] to describe themselves to a backend.
-    </span><span class="kw">pub trait </span>PluralFieldVisitor&lt;T: Resource&gt; {
-        <span class="doccomment">/// An output summarizing the results of visiting `T`s plural fields.
-        </span><span class="kw">type </span>Output;
-
-        <span class="doccomment">/// Tell the visitor about a field `F`.
-        </span><span class="kw">fn </span>visit&lt;F: PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
     }
 
     <span class="doccomment">/// Visitor which allows a backend to visit the input fields of a [`Resource`].
@@ -2130,6 +2098,18 @@
 
         <span class="doccomment">/// Tell the visitor about a field `F`.
         </span><span class="kw">fn </span>visit&lt;F: InputField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
+    }
+
+    <span class="doccomment">/// Visitor which allows relations of a [`Resource`] to describe themselves to a backend.
+    </span><span class="kw">pub trait </span>RelationVisitor&lt;T: Resource&gt; {
+        <span class="doccomment">/// An output summarizing the results of visiting `T`s relations.
+        </span><span class="kw">type </span>Output;
+
+        <span class="doccomment">/// Tell the visitor about a many-to-one relation `R`.
+        </span><span class="kw">fn </span>visit_many_to_one&lt;R: ManyToOneRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
+
+        <span class="doccomment">/// Tell the visitor about a many-to-many relation `R`.
+        </span><span class="kw">fn </span>visit_many_to_many&lt;R: ManyToManyRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
     }
 }
 </code></pre></div>

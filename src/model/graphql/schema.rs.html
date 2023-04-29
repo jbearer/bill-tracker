@@ -146,6 +146,8 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The schema describing the entities and relationships in the GraphQL API.
 
 </span><span class="kw">use </span><span class="kw">super</span>::prelude::<span class="kw-2">*</span>;
@@ -160,11 +162,11 @@
     <span class="doccomment">/// The full name of this state.
     </span>name: String,
     <span class="doccomment">/// Bills introduced in this state.
-    </span>bills: Many&lt;D, Bill&gt;,
+    </span>bills: BelongsTo&lt;Bill&gt;,
     <span class="doccomment">/// Legislators serving in this state.
-    </span>legislators: Many&lt;D, Legislator&gt;,
+    </span>legislators: BelongsTo&lt;Legislator&gt;,
     <span class="doccomment">/// Districts making up this state.
-    </span>districts: Many&lt;D, District&gt;,
+    </span>districts: BelongsTo&lt;District&gt;,
 }
 
 <span class="doccomment">/// A subdivision of a [`State`] with its own representatives in the state legislature.
@@ -184,7 +186,7 @@
     /// precise but easier to understand than the `name`.
     </span>locale: String,
     <span class="doccomment">/// Representatives of this district in the state legislature.
-    </span>representatives: Many&lt;D, Legislator&gt;,
+    </span>representatives: BelongsTo&lt;Legislator&gt;,
 }
 
 <span class="doccomment">/// A piece of legislation.
@@ -205,9 +207,10 @@
     <span class="doccomment">/// The state in which this bill was introduced.
     </span>state: State,
     <span class="doccomment">/// Legislators sponsoring the bill.
-    </span>sponsors: Many&lt;D, Legislator&gt;,
+    </span><span class="attr">#[resource(inverse(sponsored_bills))]
+    </span>sponsors: Many&lt;Legislator&gt;,
     <span class="doccomment">/// Issues that the bill relates to.
-    </span>issues: Many&lt;D, Issue&gt;,
+    </span>issues: Many&lt;Issue&gt;,
 }
 
 <span class="doccomment">/// A state lawmaker.
@@ -223,7 +226,8 @@
     <span class="doccomment">/// The legislator&#39;s political party.
     </span>party: Party,
     <span class="doccomment">/// Bills the legislator has sponsored.
-    </span>sponsored_bills: Many&lt;D, Bill&gt;,
+    </span><span class="attr">#[resource(inverse(sponsors))]
+    </span>sponsored_bills: Many&lt;Bill&gt;,
 }
 
 <span class="doccomment">/// A political party.
@@ -240,7 +244,7 @@
     <span class="doccomment">/// The full name of the party.
     </span>name: String,
     <span class="doccomment">/// State lawmakers who are members of this party.
-    </span>members: Many&lt;D, Legislator&gt;,
+    </span>members: BelongsTo&lt;Legislator&gt;,
 }
 
 <span class="doccomment">/// A political issue.
@@ -250,7 +254,7 @@
     <span class="doccomment">/// A short name for the issue.
     </span>name: String,
     <span class="doccomment">/// Bills pertaining to this issue.
-    </span>bills: Many&lt;D, Bill&gt;,
+    </span>bills: Many&lt;Bill&gt;,
 }
 
 <span class="doccomment">/// Entrypoint for read-only GraphQL queries.

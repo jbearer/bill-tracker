@@ -294,6 +294,23 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Compilation of resource registration from high-level GraphQL types into low-level SQL types.
 
 </span><span class="kw">use super</span>::{column_name, lower_scalar_type, table_name, Error};
@@ -323,10 +340,10 @@
         <span class="kw">let </span>constraints = T::describe_fields(<span class="kw-2">&amp;mut </span>ColumnBuilder { conn, dependencies });
         <span class="kw">let </span>columns = constraints.clone().unzip().<span class="number">0</span>;
 
-        <span class="comment">// A plural field is implemented as a foreign key on another table referencing this one, so
-        // for this table, we have nothing to do. But we still have to traverse the referenced type
-        // and make sure all the appropriate tables are created.
-        </span>T::describe_plural_fields(<span class="kw-2">&amp;mut </span>ColumnTraverser { conn, dependencies });
+        <span class="comment">// A relation is implemented as a foreign key on another table referencing this one, so for
+        // this table, we have nothing to do. But we still have to traverse the referenced type and
+        // make sure all the appropriate tables are created.
+        </span>T::describe_relations(<span class="kw-2">&amp;mut </span>ColumnTraverser { conn, dependencies });
 
         <span class="comment">// Separate the constraints which can be added immediately (those which are local to this
         // table) and those which must be deferred (those which reference another table that might
@@ -420,39 +437,17 @@
     dependencies: <span class="kw-2">&amp;</span><span class="lifetime">&#39;d </span><span class="kw-2">mut </span>Dependencies&lt;<span class="lifetime">&#39;a</span>&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;d</span>, C: Connection, T: gql::Resource&gt; gql::PluralFieldVisitor&lt;T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;d</span>, C: Connection, T: gql::Resource&gt; gql::RelationVisitor&lt;T&gt;
     <span class="kw">for </span>ColumnTraverser&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;d</span>, C&gt;
 {
     <span class="kw">type </span>Output = ();
 
-    <span class="kw">fn </span>visit&lt;F: gql::PluralField&lt;Resource = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
-        <span class="kw">struct </span>Visitor&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;d</span>, C&gt; {
-            conn: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
-            dependencies: <span class="kw-2">&amp;</span><span class="lifetime">&#39;d </span><span class="kw-2">mut </span>Dependencies&lt;<span class="lifetime">&#39;a</span>&gt;,
-        }
+    <span class="kw">fn </span>visit_many_to_one&lt;R: gql::ManyToOneRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+        register_resource::&lt;C, R::Target&gt;(<span class="self">self</span>.conn, <span class="self">self</span>.dependencies);
+    }
 
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;d</span>, C: Connection, T: gql::Type&gt; gql::Visitor&lt;T&gt; <span class="kw">for </span>Visitor&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;d</span>, C&gt; {
-            <span class="kw">type </span>Output = ();
-
-            <span class="kw">fn </span>resource(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output
-            <span class="kw">where
-                </span>T: gql::Resource,
-            {
-                <span class="comment">// If the field is a reference to another table, make sure that table is registered.
-                </span>register_resource::&lt;C, T&gt;(<span class="self">self</span>.conn, <span class="self">self</span>.dependencies);
-            }
-
-            <span class="kw">fn </span>scalar(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output
-            <span class="kw">where
-                </span>T: gql::Scalar,
-            {
-            }
-        }
-
-        &lt;F::Type <span class="kw">as </span>gql::PluralType&gt;::Singular::describe(Visitor {
-            conn: <span class="self">self</span>.conn,
-            dependencies: <span class="self">self</span>.dependencies,
-        })
+    <span class="kw">fn </span>visit_many_to_many&lt;R: gql::ManyToManyRelation&lt;Owner = T&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+        register_resource::&lt;C, R::Target&gt;(<span class="self">self</span>.conn, <span class="self">self</span>.dependencies);
     }
 }
 
@@ -535,7 +530,7 @@
 </span><span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::sql::db::mock;
-    <span class="kw">use </span>gql::{Id, Resource};
+    <span class="kw">use </span>gql::{BelongsTo, Id, Resource};
 
     <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Resource)]
     </span><span class="kw">struct </span>Simple {
@@ -586,6 +581,45 @@
             [
                 SchemaColumn::new(<span class="string">&quot;id&quot;</span>, Type::Serial),
                 SchemaColumn::new(<span class="string">&quot;simple&quot;</span>, Type::Int4),
+            ]
+        );
+    }
+
+    <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    </span><span class="kw">struct </span>Parent {
+        id: Id,
+        name: String,
+        children: BelongsTo&lt;Child&gt;,
+    }
+
+    <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Resource)]
+    #[resource(plural(Children))]
+    </span><span class="kw">struct </span>Child {
+        id: Id,
+        parent: Parent,
+    }
+
+    <span class="attr">#[async_std::test]
+    </span><span class="kw">async fn </span>test_many_to_one() {
+        <span class="kw">let </span>db = mock::Connection::create();
+        execute::&lt;<span class="kw">_</span>, Parent&gt;(<span class="kw-2">&amp;</span>db).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>schema = db.schema().<span class="kw">await</span>;
+
+        <span class="comment">// Ensure the dependency table `children` was created.
+        </span><span class="macro">assert_eq!</span>(
+            schema[<span class="string">&quot;children&quot;</span>],
+            [
+                SchemaColumn::new(<span class="string">&quot;id&quot;</span>, Type::Serial),
+                SchemaColumn::new(<span class="string">&quot;parent&quot;</span>, Type::Int4),
+            ]
+        );
+
+        <span class="comment">// Check the table with the relation, which does not explicitly reference the children.
+        </span><span class="macro">assert_eq!</span>(
+            schema[<span class="string">&quot;parents&quot;</span>],
+            [
+                SchemaColumn::new(<span class="string">&quot;id&quot;</span>, Type::Serial),
+                SchemaColumn::new(<span class="string">&quot;name&quot;</span>, Type::Text)
             ]
         );
     }

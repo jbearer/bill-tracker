@@ -137,13 +137,25 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Instantiation of a GraphQL [`DataSource`](gql::DataSource) for a SQL database.
 
 </span><span class="kw">use super</span>::{db, ops};
 <span class="kw">use </span><span class="kw">crate</span>::graphql::{
-    backend::{<span class="self">self </span><span class="kw">as </span>gql, Many, PageRequest},
-    connection::Edge,
-    type_system::{PluralType, Resource, Type},
+    backend::{<span class="self">self </span><span class="kw">as </span>gql, Edge, PageRequest, Paginated},
+    type_system::{Relation, Resource, Type},
     EmptyFields, ObjectType,
 };
 <span class="kw">use </span>async_trait::async_trait;
@@ -174,9 +186,18 @@
     <span class="kw">type </span>Connection&lt;T: Type, C: ObjectType, E: ObjectType&gt; = SqlConnection&lt;T, C, E&gt;;
     <span class="kw">type </span>Error = ops::Error;
 
+    <span class="kw">async fn </span>load_relation&lt;R: Relation&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        owner: <span class="kw-2">&amp;</span>R::Owner,
+        filter: <span class="prelude-ty">Option</span>&lt;&lt;R::Target <span class="kw">as </span>Type&gt;::Predicate&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Paginated&lt;<span class="self">Self</span>, R::Target&gt;, <span class="self">Self</span>::Error&gt; {
+        <span class="kw">let </span>objects = ops::select::load_relation::&lt;Db, R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, owner, filter).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(SqlConnection::new(objects))
+    }
+
     <span class="kw">async fn </span>load_page&lt;T: Type, C: ObjectType, E: Clone + ObjectType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        conn: <span class="kw-2">&amp;</span><span class="self">Self</span>::Connection&lt;T, C, E&gt;,
+        conn: <span class="kw-2">&amp;</span>Paginated&lt;<span class="self">Self</span>, T, C, E&gt;,
         page: PageRequest&lt;usize&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Edge&lt;usize, T, E&gt;&gt;, <span class="self">Self</span>::Error&gt; {
         <span class="prelude-val">Ok</span>(conn.load(page))
@@ -189,18 +210,9 @@
     <span class="kw">async fn </span>query&lt;T: Resource&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         filter: <span class="prelude-ty">Option</span>&lt;T::ResourcePredicate&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Many&lt;<span class="self">Self</span>, T&gt;, <span class="self">Self</span>::Error&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Paginated&lt;<span class="self">Self</span>, T&gt;, <span class="self">Self</span>::Error&gt; {
         <span class="kw">let </span>objects = ops::select::execute(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, filter).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(SqlConnection {
-            fields: EmptyFields,
-            edges: objects
-                .into_iter()
-                .map(|obj| SqlEdge {
-                    node: obj,
-                    fields: EmptyFields,
-                })
-                .collect(),
-        })
+        <span class="prelude-val">Ok</span>(SqlConnection::new(objects))
     }
 
     <span class="kw">async fn </span>insert&lt;T: Resource, I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, inputs: I) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;
@@ -218,6 +230,24 @@
     fields: C,
     <span class="comment">// For now we just keep all items in the connection in memory. Later we will add pagination.
     </span>edges: Vec&lt;SqlEdge&lt;T, E&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;T: Type&gt; SqlConnection&lt;T, EmptyFields, EmptyFields&gt; {
+    <span class="kw">fn </span>new&lt;I&gt;(objects: I) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>I: IntoIterator&lt;Item = T&gt;,
+    {
+        <span class="self">Self </span>{
+            fields: EmptyFields,
+            edges: objects
+                .into_iter()
+                .map(|obj| SqlEdge {
+                    node: obj,
+                    fields: EmptyFields,
+                })
+                .collect(),
+        }
+    }
 }
 
 <span class="kw">impl</span>&lt;T: Type, C, E: ObjectType&gt; gql::Connection&lt;C&gt; <span class="kw">for </span>SqlConnection&lt;T, C, E&gt; {
@@ -238,13 +268,9 @@
         <span class="kw-2">*</span>cursor &gt; <span class="number">0
     </span>}
 
-    <span class="kw">fn </span>fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>C {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.fields
+    <span class="kw">fn </span>into_fields(<span class="self">self</span>) -&gt; C {
+        <span class="self">self</span>.fields
     }
-}
-
-<span class="kw">impl</span>&lt;T: Type, C, E: ObjectType&gt; PluralType <span class="kw">for </span>SqlConnection&lt;T, C, E&gt; {
-    <span class="kw">type </span>Singular = T;
 }
 
 <span class="kw">impl</span>&lt;T: Type, C, E: Clone + ObjectType&gt; SqlConnection&lt;T, C, E&gt; {
