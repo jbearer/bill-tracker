@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":[["Predicate","A boolean predicate on an integral scalar."]],"struct":[["Cmp","A comparison on an integral scalar."]],"trait":[["Trait","An integral scalar represented as  i64"]]};

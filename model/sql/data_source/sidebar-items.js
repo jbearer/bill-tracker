@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":[["SqlConnection","A paginated connection to a set of rows."],["SqlDataSource","A data source for the bill tracker API implemented using a SQL database."]],"type":[["PostgresDataSource","A data source for the bill tracker API implemented using a PostgreSQL database."]]};
