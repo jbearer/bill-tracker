@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["schema","The schema describing the entities and relationships in the GraphQL API."]]};
+window.SIDEBAR_ITEMS = {"fn":[["init_logging","Initialize tracing."]],"mod":[["db","The Postgres database used by the bill tracker application."],["legiscan","Facilities for pulling data from Legiscan."],["schema","The schema describing the entities and relationships in the GraphQL API."]]};

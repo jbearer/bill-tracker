@@ -121,113 +121,135 @@
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The schema describing the entities and relationships in the GraphQL API.
 
 </span><span class="kw">use </span>relational_graphql::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A US state.
-</span><span class="attr">#[derive(Clone, Debug, Resource)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Resource)]
 </span><span class="kw">pub struct </span>State {
-    id: Id,
+    <span class="kw">pub </span>id: Id,
     <span class="doccomment">/// The 2-letter abbreviation for this state as recognized by the US postal service.
     </span><span class="attr">#[resource(primary)]
-    </span>abbreviation: String,
+    </span><span class="kw">pub </span>abbreviation: String,
     <span class="doccomment">/// The full name of this state.
-    </span>name: String,
+    </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// Bills introduced in this state.
-    </span>bills: BelongsTo&lt;Bill&gt;,
-    <span class="doccomment">/// Legislators serving in this state.
-    </span>legislators: BelongsTo&lt;Legislator&gt;,
+    </span><span class="kw">pub </span>bills: BelongsTo&lt;Bill&gt;,
     <span class="doccomment">/// Districts making up this state.
-    </span>districts: BelongsTo&lt;District&gt;,
+    </span><span class="kw">pub </span>districts: BelongsTo&lt;District&gt;,
 }
 
 <span class="doccomment">/// A subdivision of a [`State`] with its own representatives in the state legislature.
-</span><span class="attr">#[derive(Clone, Debug, Resource)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Resource)]
 </span><span class="kw">pub struct </span>District {
-    id: Id,
+    <span class="kw">pub </span>id: Id,
     <span class="doccomment">/// The state containing this district.
-    </span>state: State,
+    </span><span class="kw">pub </span>state: State,
     <span class="doccomment">/// The name of the district.
     ///
     /// This is usually a number (like &quot;37&quot; in CA-37), but not always -- some states have an
     /// at-large district with ID &quot;AL&quot;.
-    </span>name: String,
-    <span class="doccomment">/// The locale of the district.
-    ///
-    /// This is usually the name of the most populous city or county in the district. It is less
-    /// precise but easier to understand than the `name`.
-    </span>locale: String,
+    </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// Representatives of this district in the state legislature.
-    </span>representatives: BelongsTo&lt;Legislator&gt;,
+    </span><span class="kw">pub </span>representatives: BelongsTo&lt;Legislator&gt;,
 }
 
 <span class="doccomment">/// A piece of legislation.
-</span><span class="attr">#[derive(Clone, Debug, Resource)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Resource)]
 </span><span class="kw">pub struct </span>Bill {
-    id: Id,
+    <span class="kw">pub </span>id: Id,
+    <span class="doccomment">/// The ID of this bill in Legiscan.
+    </span><span class="kw">pub </span>legiscan_id: String,
+    <span class="doccomment">/// The hash of this bill in Legiscan, for change detection.
+    </span><span class="kw">pub </span>legiscan_hash: String,
     <span class="doccomment">/// The name of the bill.
     ///
     /// This is frequently a combination of a chamber identifier (like &quot;SB&quot; for senate bill) and a
-    /// bill number, as in &quot;SB-999&quot;.
-    </span>name: String,
+    /// bill number, as in &quot;SB-999&quot;. It is always unique within a session.
+    </span><span class="kw">pub </span>name: String,
+    <span class="doccomment">/// A readable title for the bill.
+    ///
+    /// Compared to `name`, `title` is similarly brief, more descriptive, but less precise (it is
+    /// freeform language, and not guranteed unique within a session, although in practice it
+    /// usually will be).
+    </span><span class="kw">pub </span>title: String,
     <span class="doccomment">/// A short summary of the effects of the bill.
     ///
     /// The summary may be provided by the sponsors of the bill or a non-partisan office, but it is
     /// important to remember that it is just some person&#39;s or group of people&#39;s interpretation of
     /// the bill. Unlike the text of the bill itself, it is not legally binding.
-    </span>summary: String,
+    </span><span class="kw">pub </span>summary: String,
     <span class="doccomment">/// The state in which this bill was introduced.
-    </span>state: State,
+    </span><span class="kw">pub </span>state: State,
     <span class="doccomment">/// Legislators sponsoring the bill.
     </span><span class="attr">#[resource(inverse(sponsored_bills))]
-    </span>sponsors: Many&lt;Legislator&gt;,
+    </span><span class="kw">pub </span>sponsors: Many&lt;Legislator&gt;,
     <span class="doccomment">/// Issues that the bill relates to.
-    </span>issues: Many&lt;Issue&gt;,
+    </span><span class="kw">pub </span>issues: Many&lt;Issue&gt;,
 }
 
 <span class="doccomment">/// A state lawmaker.
-</span><span class="attr">#[derive(Clone, Debug, Resource)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Resource)]
 </span><span class="kw">pub struct </span>Legislator {
-    id: Id,
-    <span class="doccomment">/// The legislator&#39;s legal name.
-    </span>name: String,
-    <span class="doccomment">/// The state in which the legislator serves.
-    </span>state: State,
+    <span class="kw">pub </span>id: Id,
+    <span class="doccomment">/// The ID of this legislator in Legiscan.
+    </span><span class="kw">pub </span>legiscan_id: String,
+    <span class="doccomment">/// The hash of this legislator in Legiscan, for change detection.
+    </span><span class="kw">pub </span>legiscan_hash: String,
+    <span class="doccomment">/// The legislator&#39;s first name.
+    </span><span class="kw">pub </span>first_name: String,
+    <span class="doccomment">/// The legislator&#39;s middle name.
+    </span><span class="kw">pub </span>middle_name: String,
+    <span class="doccomment">/// The legislator&#39;s last name.
+    </span><span class="kw">pub </span>last_name: String,
     <span class="doccomment">/// The district in `state` which the legislator represents.
-    </span>district: District,
+    </span><span class="kw">pub </span>district: District,
     <span class="doccomment">/// The legislator&#39;s political party.
-    </span>party: Party,
+    </span><span class="kw">pub </span>party: Party,
     <span class="doccomment">/// Bills the legislator has sponsored.
     </span><span class="attr">#[resource(inverse(sponsors))]
-    </span>sponsored_bills: Many&lt;Bill&gt;,
+    </span><span class="kw">pub </span>sponsored_bills: Many&lt;Bill&gt;,
 }
 
 <span class="doccomment">/// A political party.
-</span><span class="attr">#[derive(Clone, Debug, Resource)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Resource)]
 #[resource(plural(Parties))]
 </span><span class="kw">pub struct </span>Party {
-    id: Id,
+    <span class="kw">pub </span>id: Id,
     <span class="doccomment">/// A shortened form of the party&#39;s name.
     ///
     /// This is frequently a single letter as in &quot;R&quot; (for Republican) or &quot;D&quot; (for Democrat). For
     /// obscure parties, though, this may be as long as the full name of the party.
     </span><span class="attr">#[resource(primary)]
-    </span>abbreviation: String,
+    </span><span class="kw">pub </span>abbreviation: String,
     <span class="doccomment">/// The full name of the party.
-    </span>name: String,
+    </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// State lawmakers who are members of this party.
-    </span>members: BelongsTo&lt;Legislator&gt;,
+    </span><span class="kw">pub </span>members: BelongsTo&lt;Legislator&gt;,
 }
 
 <span class="doccomment">/// A political issue.
-</span><span class="attr">#[derive(Clone, Debug, Resource)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Resource)]
 </span><span class="kw">pub struct </span>Issue {
-    id: Id,
+    <span class="kw">pub </span>id: Id,
+    <span class="doccomment">/// The ID of this issue in Legiscan.
+    </span><span class="kw">pub </span>legiscan_id: String,
     <span class="doccomment">/// A short name for the issue.
-    </span>name: String,
+    </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// Bills pertaining to this issue.
-    </span>bills: Many&lt;Bill&gt;,
+    </span><span class="kw">pub </span>bills: Many&lt;Bill&gt;,
 }
 
 <span class="doccomment">/// Entrypoint for read-only GraphQL queries.
