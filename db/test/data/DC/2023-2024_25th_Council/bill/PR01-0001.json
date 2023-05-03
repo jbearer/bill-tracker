@@ -1,0 +1,80 @@
+{
+  "bill": {
+    "bill_id": 3,
+    "change_hash": "12966663227498d71d1e51028d615af6",
+    "session_id": 2,
+    "session": {
+      "session_id": 2,
+      "state_id": 51,
+      "year_start": 2023,
+      "year_end": 2024,
+      "prefile": 0,
+      "sine_die": 0,
+      "prior": 0,
+      "special": 0,
+      "session_tag": "Regular Session",
+      "session_title": "2023-2024 Regular Session",
+      "session_name": "25th Council"
+    },
+    "url": "https://fake-site.com/DC/bill/PR01-0001/2023",
+    "state_link": "https://fake-site.com/Legislation/PR01-0001",
+    "completed": 1,
+    "status": 4,
+    "status_date": "2023-03-07",
+    "progress": [],
+    "state": "DC",
+    "state_id": 51,
+    "bill_number": "PR01-0001",
+    "bill_type": "R",
+    "bill_type_id": "2",
+    "body": "C",
+    "body_id": 3,
+    "current_body": "C",
+    "current_body_id": 3,
+    "title": "A Resolution Recognizing Hawthorne Wipes as the Official Moist Towelette Provider of Pride",
+    "description": "A Resolution Recognizing Hawthorne Wipes as the Official Moist Towelette Provider of Pride",
+    "pending_committee_id": 0,
+    "committee": [],
+    "referrals": [],
+    "history": [],
+    "sponsors": [
+      {
+        "people_id": 5,
+        "person_hash": "1cf591d4e45e03075a6a2fd89c25ebf2",
+        "party_id": "2",
+        "state_id": 51,
+        "party": "R",
+        "role_id": 2,
+        "role": "Sen",
+        "name": "Piercinald Anastasia Hawthorne",
+        "first_name": "Piercinald",
+        "middle_name": "Anastasia",
+        "last_name": "Hawthorne",
+        "suffix": "",
+        "nickname": "Pierce",
+        "district": "SD-001",
+        "sponsor_type_id": 1,
+        "sponsor_order": 1,
+        "committee_sponsor": 0,
+        "committee_id": 0,
+        "state_federal": 0
+      }
+    ],
+    "sasts": [],
+    "subjects": [
+      {
+        "subject_id": 2,
+        "subject_name": "LGBT"
+      },
+      {
+        "subject_id": 3,
+        "subject_name": "Business"
+      }
+    ],
+    "texts": [],
+    "votes": [],
+    "amendments": [],
+    "supplements": [],
+    "calendar": []
+  }
+}

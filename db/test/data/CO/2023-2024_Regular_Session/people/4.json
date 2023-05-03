@@ -1,0 +1,21 @@
+{
+  "person": {
+    "people_id": 4,
+    "person_hash": "8b6098a53b9e8fa41584bd154a6a27d0",
+    "party_id": "5",
+    "state_id": 6,
+    "party": "L",
+    "role_id": 1,
+    "role": "Rep",
+    "name": "Jeff Winger",
+    "first_name": "Jeff",
+    "middle_name": "",
+    "last_name": "Winger",
+    "suffix": "",
+    "nickname": "",
+    "district": "HD-004",
+    "committee_sponsor": 0,
+    "committee_id": 0,
+    "state_federal": 0
+  }
+}

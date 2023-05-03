@@ -1,0 +1,21 @@
+{
+  "person": {
+    "people_id": 3,
+    "person_hash": "7f85192e9b25660f3924bd4a7b535e85",
+    "party_id": "1",
+    "state_id": 6,
+    "party": "D",
+    "role_id": 1,
+    "role": "Rep",
+    "name": "Annie Edison",
+    "first_name": "Annie",
+    "middle_name": "",
+    "last_name": "Edison",
+    "suffix": "",
+    "nickname": "",
+    "district": "HD-003",
+    "committee_sponsor": 0,
+    "committee_id": 0,
+    "state_federal": 0
+  }
+}

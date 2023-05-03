@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+mkdir -p db/test/pg
+docker run \
+    --name bill-tracker-test-db \
+    -e POSTGRES_PASSWORD=password \
+    -it \
+    -p 5433:5432 \
+    -v `pwd`/db/test/pg:/var/lib/postgresql/data \
+    postgres

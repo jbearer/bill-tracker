@@ -1,0 +1,102 @@
+{
+  "bill": {
+    "bill_id": 2,
+    "change_hash": "cbfcebf164915a630e3d45c57b967ccd",
+    "session_id": 1,
+    "session": {
+      "session_id": 1,
+      "state_id": 6,
+      "year_start": 2023,
+      "year_end": 2024,
+      "prefile": 0,
+      "sine_die": 0,
+      "prior": 0,
+      "special": 0,
+      "session_tag": "Regular Session",
+      "session_title": "2023-2024 Regular Session",
+      "session_name": "2023-2024 Session"
+    },
+    "url": "https://fakesite.com/CO/bill/HB2/2023",
+    "state_link": "https://fakesite.com/CO/bill/HB2/2023",
+    "completed": 0,
+    "status": 2,
+    "status_date": "2023-01-01",
+    "progress": [],
+    "state": "CO",
+    "state_id": 6,
+    "bill_number": "HB2",
+    "bill_type": "B",
+    "bill_type_id": "1",
+    "body": "H",
+    "body_id": 1,
+    "current_body": "S",
+    "current_body_id": 2,
+    "title": "Troy's Law.",
+    "description": "An act authorizing enhanced security measures and stricter penalties for change-related crime.",
+    "pending_committee_id": 1,
+    "committee": {
+      "committee_id": 1,
+      "chamber": "S",
+      "chamber_id": 2,
+      "name": "ACB Task Force"
+    },
+    "referrals": [],
+    "history": [],
+    "sponsors": [
+      {
+        "people_id": 3,
+        "person_hash": "7f85192e9b25660f3924bd4a7b535e85",
+        "party_id": "1",
+        "state_id": 6,
+        "party": "D",
+        "role_id": 1,
+        "role": "Rep",
+        "name": "Annie Edison",
+        "first_name": "Annie",
+        "middle_name": "",
+        "last_name": "Edison",
+        "suffix": "",
+        "nickname": "",
+        "district": "HD-003",
+        "sponsor_type_id": 1,
+        "sponsor_order": 1,
+        "committee_sponsor": 0,
+        "committee_id": 0,
+        "state_federal": 0
+      },
+      {
+        "people_id": 4,
+        "person_hash": "8b6098a53b9e8fa41584bd154a6a27d0",
+        "party_id": "5",
+        "state_id": 6,
+        "party": "L",
+        "role_id": 1,
+        "role": "Rep",
+        "name": "Jeff Winger",
+        "first_name": "Jeff",
+        "middle_name": "",
+        "last_name": "Winger",
+        "suffix": "",
+        "nickname": "",
+        "district": "HD-004",
+        "sponsor_type_id": 1,
+        "sponsor_order": 1,
+        "committee_sponsor": 0,
+        "committee_id": 0,
+        "state_federal": 0
+      }
+    ],
+    "sasts": [],
+    "subjects": [
+      {
+        "subject_id": 1,
+        "subject_name": "Crime"
+      }
+    ],
+    "texts": [],
+    "votes": [],
+    "amendments": [],
+    "supplements": [],
+    "calendar": []
+  }
+}

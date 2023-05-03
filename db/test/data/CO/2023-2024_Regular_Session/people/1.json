@@ -1,0 +1,21 @@
+{
+  "person": {
+    "people_id": 1,
+    "person_hash": "e0562721dad39a2fd34087d116b8fd89",
+    "party_id": "1",
+    "state_id": 6,
+    "party": "D",
+    "role_id": 1,
+    "role": "Rep",
+    "name": "Abed Nadir",
+    "first_name": "Abed",
+    "middle_name": "",
+    "last_name": "Nadir",
+    "suffix": "",
+    "nickname": "",
+    "district": "HD-001",
+    "committee_sponsor": 0,
+    "committee_id": 0,
+    "state_federal": 0
+  }
+}

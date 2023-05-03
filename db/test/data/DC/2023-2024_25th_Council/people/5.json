@@ -1,0 +1,23 @@
+{
+  "person": {
+    "people_id": 5,
+    "person_hash": "1cf591d4e45e03075a6a2fd89c25ebf2",
+    "party_id": "2",
+    "state_id": 51,
+    "party": "R",
+    "role_id": 2,
+    "role": "Sen",
+    "name": "Piercinald Anastasia Hawthorne",
+    "first_name": "Piercinald",
+    "middle_name": "Anastasia",
+    "last_name": "Hawthorne",
+    "suffix": "",
+    "nickname": "Pierce",
+    "district": "SD-001",
+    "sponsor_type_id": 1,
+    "sponsor_order": 1,
+    "committee_sponsor": 0,
+    "committee_id": 0,
+    "state_federal": 0
+  }
+}

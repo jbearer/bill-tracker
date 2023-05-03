@@ -15,7 +15,7 @@ jobs:
       postgres:
         image: postgres
         ports:
-          - 5432:5432
+          - 5433:5432
         env:
           POSTGRES_PASSWORD: password
 
@@ -47,6 +47,10 @@ jobs:
       - name: Build
         run: |
           nix develop -c cargo build --release --workspace
+
+      - name: Create test database
+        run: |
+          nix develop -c cargo run --release --bin create-test-db
 
       - name: Test
         timeout-minutes: 30
