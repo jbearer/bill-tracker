@@ -87,7 +87,12 @@
       }
     ],
     "sasts": [],
-    "subjects": [],
+    "subjects": [
+      {
+        "subject_id": 4,
+        "subject_name": "Campus Life"
+      }
+    ],
     "texts": [],
     "votes": [],
     "amendments": [],

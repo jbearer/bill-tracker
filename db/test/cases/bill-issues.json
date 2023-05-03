@@ -1,0 +1,25 @@
+{
+    "bills": {
+        "edges": [
+            {
+                "node": {
+                    "name": "PR01-0001",
+                    "issues": {
+                        "edges": [
+                            {
+                                "node": {
+                                    "name": "LGBT"
+                                }
+                            },
+                            {
+                                "node": {
+                                    "name": "Business"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+    }
+}

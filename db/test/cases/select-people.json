@@ -1,0 +1,61 @@
+{
+    "legislators": {
+        "edges": [
+            {
+                "node": {
+                    "firstName": "Abed",
+                    "lastName": "Nadir",
+                    "party": { "abbreviation": "D" },
+                    "district": {
+                        "name": "HD-001",
+                        "state": { "abbreviation": "CO" }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "firstName": "Annie",
+                    "lastName": "Edison",
+                    "party": { "abbreviation": "D" },
+                    "district": {
+                        "name": "HD-003",
+                        "state": { "abbreviation": "CO" }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "firstName": "Jeff",
+                    "lastName": "Winger",
+                    "party": { "abbreviation": "L" },
+                    "district": {
+                        "name": "HD-004",
+                        "state": { "abbreviation": "CO" }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "firstName": "Piercinald",
+                    "lastName": "Hawthorne",
+                    "party": { "abbreviation": "R" },
+                    "district": {
+                        "name": "SD-001",
+                        "state": { "abbreviation": "DC" }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "firstName": "Troy",
+                    "lastName": "Barnes",
+                    "party": { "abbreviation": "I" },
+                    "district": {
+                        "name": "HD-002",
+                        "state": { "abbreviation": "CO" }
+                    }
+                }
+            }
+        ]
+    }
+}

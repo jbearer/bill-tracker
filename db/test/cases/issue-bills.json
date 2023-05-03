@@ -1,0 +1,27 @@
+{
+    "issues": {
+        "edges": [
+            {
+                "node": {
+                    "name": "Campus Life",
+                    "bills": {
+                        "edges": [
+                            {
+                                "node": {
+                                    "name": "HB1",
+                                    "state": { "abbreviation": "CO" }
+                                }
+                            },
+                            {
+                                "node": {
+                                    "name": "HB2",
+                                    "state": { "abbreviation": "CO" }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+    }
+}

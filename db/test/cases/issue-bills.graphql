@@ -1,0 +1,17 @@
+{
+    issues(where: {is: {is: {lit: "Campus Life"}}}) {
+        edges {
+            node {
+                name
+                bills {
+                    edges {
+                        node {
+                            name
+                            state { abbreviation }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

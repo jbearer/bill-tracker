@@ -1,0 +1,20 @@
+{
+    "legislators": {
+        "edges": [
+            {
+                "node": {
+                    "lastName": "Hawthorne",
+                    "sponsoredBills": {
+                        "edges": [
+                            {
+                                "node": {
+                                    "name": "PR01-0001"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+    }
+}

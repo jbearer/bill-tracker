@@ -1,0 +1,27 @@
+{
+    "bills": {
+        "edges": [
+            {
+                "node": {
+                    "name": "HB1",
+                    "title": "Student Body President.",
+                    "state": { "abbreviation": "CO" }
+                }
+            },
+            {
+                "node": {
+                    "name": "HB2",
+                    "title": "Troy's Law.",
+                    "state": { "abbreviation": "CO" }
+                }
+            },
+            {
+                "node": {
+                    "name": "PR01-0001",
+                    "title": "A Resolution Recognizing Hawthorne Wipes as the Official Moist Towelette Provider of Pride",
+                    "state": { "abbreviation": "DC" }
+                }
+            }
+        ]
+    }
+}

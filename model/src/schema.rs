@@ -114,6 +114,7 @@ pub struct Party {
 pub struct Issue {
     pub id: Id,
     /// A short name for the issue.
+    #[resource(primary)]
     pub name: String,
     /// Bills pertaining to this issue.
     pub bills: Many<Bill>,

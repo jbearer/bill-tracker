@@ -1,0 +1,24 @@
+{
+    legislators(where: {
+        has: {
+            district: {
+                has: {
+                    state: {is: {is: {lit: "DC"}}}
+                }
+            }
+        }
+    }) {
+        edges {
+            node {
+                lastName
+                sponsoredBills {
+                    edges {
+                        node {
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

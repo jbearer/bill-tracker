@@ -42,7 +42,7 @@ pub struct Options {
 }
 
 impl Options {
-    /// Connect to the databse.
+    /// Connect to the database.
     pub async fn connect(&self) -> Result<Connection, Error> {
         let mut config = postgres::Config::default();
         let host = self
@@ -58,6 +58,16 @@ impl Options {
             config.port(port);
         }
         Ok(postgres::Connection::new(config).await?.into())
+    }
+
+    /// Connect to the test database with the conventional parameters (port 5433).
+    #[cfg(any(test, feature = "testing"))]
+    pub fn test() -> Self {
+        Self {
+            db_url: "http://localhost:5433".parse().unwrap(),
+            db_user: "postgres".into(),
+            db_password: "password".into(),
+        }
     }
 }
 

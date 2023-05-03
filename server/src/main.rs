@@ -13,13 +13,20 @@ struct Options {
     db: db::Options,
 }
 
+impl Options {
+    async fn serve(&self) -> tide::Result<()> {
+        let mut app = tide::new();
+        app.at("/graphql")
+            .all(graphql(schema::executor(&self.db).await?));
+        app.listen(format!("0.0.0.0:{}", self.port)).await?;
+        Ok(())
+    }
+}
+
 #[async_std::main]
 async fn main() -> tide::Result<()> {
     relational_graphql::init_logging();
-    let opt = Options::parse();
-    let mut app = tide::new();
-    app.at("/graphql")
-        .all(graphql(schema::executor(&opt.db).await?));
-    app.listen(format!("0.0.0.0:{}", opt.port)).await?;
-    Ok(())
+    Options::parse().serve().await
 }
+
+mod test_runner;

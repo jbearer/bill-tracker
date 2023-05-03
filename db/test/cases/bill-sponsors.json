@@ -1,0 +1,20 @@
+{
+    "bills": {
+        "edges": [
+            {
+                "node": {
+                    "name": "PR01-0001",
+                    "sponsors": {
+                        "edges": [
+                            {
+                                "node": {
+                                    "lastName": "Hawthorne"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+    }
+}

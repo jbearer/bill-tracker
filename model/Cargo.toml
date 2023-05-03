@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Jeb Bearer <jeb.bearer@gmail.com>"]
 
+[features]
+default = []
+testing = []
+
 [dependencies]
 anyhow = "1.0"
 async-std = "1.12"

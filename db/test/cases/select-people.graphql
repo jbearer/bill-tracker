@@ -1,0 +1,15 @@
+{
+    legislators(first: 5) {
+        edges {
+            node {
+                firstName
+                lastName
+                party { abbreviation }
+                district {
+                    name
+                    state { abbreviation }
+                }
+            }
+        }
+    }
+}

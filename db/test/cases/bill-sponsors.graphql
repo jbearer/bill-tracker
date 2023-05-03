@@ -1,0 +1,20 @@
+{
+    bills(where: {
+        has: {
+            state: {is: {is: {lit: "DC"}}}
+        }
+    }) {
+        edges {
+            node {
+                name
+                sponsors {
+                    edges {
+                        node {
+                            lastName
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

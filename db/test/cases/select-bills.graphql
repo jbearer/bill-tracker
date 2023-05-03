@@ -1,0 +1,11 @@
+{
+    bills(first: 3) {
+        edges {
+            node {
+                name
+                title
+                state { abbreviation }
+            }
+        }
+    }
+}
