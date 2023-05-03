@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["model","server"];
+window.ALL_CRATES = ["model"];
