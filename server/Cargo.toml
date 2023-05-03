@@ -5,3 +5,9 @@ edition = "2021"
 authors = ["Jeb Bearer <jeb.bearer@gmail.com>"]
 
 [dependencies]
+async-graphql-tide = "5.0"
+async-std = "1.12"
+clap = { version = "4.2", features = ["derive", "env"] }
+model = { path = "../model" }
+relational-graphql = { git = "https://github.com/jbearer/relational-graphql.git" }
+tide = "0.16"

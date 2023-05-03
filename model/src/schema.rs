@@ -1,5 +1,8 @@
 //! The schema describing the entities and relationships in the GraphQL API.
 
+use crate::db;
+use anyhow::Error;
+use async_graphql::SchemaBuilder;
 use relational_graphql::prelude::*;
 
 /// A US state.
@@ -128,5 +131,16 @@ pub struct Query;
 
 /// Create the schema for the GraphQL API.
 pub fn generate() -> Schema<Query, EmptyMutation, EmptySubscription> {
-    Schema::build(Query, EmptyMutation, EmptySubscription).finish()
+    build().finish()
+}
+
+/// Create an executor for the GraphQL API backed by a Postgres database.
+pub async fn executor(
+    opt: &db::Options,
+) -> Result<Schema<Query, EmptyMutation, EmptySubscription>, Error> {
+    Ok(build().data(opt.connect().await?).finish())
+}
+
+fn build() -> SchemaBuilder<Query, EmptyMutation, EmptySubscription> {
+    Schema::build(Query, EmptyMutation, EmptySubscription)
 }
