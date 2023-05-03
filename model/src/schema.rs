@@ -110,8 +110,6 @@ pub struct Party {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Resource)]
 pub struct Issue {
     pub id: Id,
-    /// The ID of this issue in Legiscan.
-    pub legiscan_id: String,
     /// A short name for the issue.
     pub name: String,
     /// Bills pertaining to this issue.

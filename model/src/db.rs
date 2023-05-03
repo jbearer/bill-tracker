@@ -128,14 +128,39 @@ pub async fn update<L: Legiscan, P: AsRef<Path>>(
                         vec![]
                     }
                 }
-                None => vec![Action::InsertBill(schema::bill::BillInput {
-                    legiscan_id: bill.id(),
-                    legiscan_hash: bill.hash(),
-                    name: bill.name(),
-                    title: bill.title(),
-                    summary: bill.summary(),
-                    state: bill.state().id().into(),
-                })],
+                None => {
+                    // The people that this bill depends on will all be inserted from the people
+                    // section of this dataset. The issues, on the other hand, need to be created
+                    // now if they don't exist already.
+                    let mut actions =
+                        try_join_all(bill.issues().into_iter().map(|issue| async move {
+                            if find_issue(read_conn, issue.clone()).await?.is_none() {
+                                Ok(Some(Action::InsertIssue(issue)))
+                            } else {
+                                Ok::<_, Error>(None)
+                            }
+                        }))
+                        .await?
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<_>>();
+                    actions.extend([
+                        Action::InsertBill(schema::bill::BillInput {
+                            legiscan_id: bill.id(),
+                            legiscan_hash: bill.hash(),
+                            name: bill.name(),
+                            title: bill.title(),
+                            summary: bill.summary(),
+                            state: bill.state().id().into(),
+                        }),
+                        Action::LinkBill {
+                            bill: bill.id(),
+                            sponsors: bill.sponsors(),
+                            issues: bill.issues(),
+                        },
+                    ]);
+                    actions
+                }
             };
 
             Ok::<_, Error>(actions)
@@ -212,6 +237,12 @@ pub async fn update<L: Legiscan, P: AsRef<Path>>(
         let mut build_people: Vec<(String, PersonBuilder)> = Default::default();
         // 3. Insert all bills.
         let mut insert_bills: Vec<schema::bill::BillInput> = Default::default();
+        // 4. Insert all issues.
+        let mut insert_issues: HashSet<String> = Default::default();
+        // 5. Add relations between bills and their sponsors.
+        let mut bill_sponsors: Vec<(String, String)> = Default::default();
+        // 6. Add relations between bills and their issues.
+        let mut bill_issues: Vec<(String, String)> = Default::default();
         for action in actions {
             match action {
                 Action::InsertDistrict(district) => {
@@ -226,6 +257,21 @@ pub async fn update<L: Legiscan, P: AsRef<Path>>(
                 Action::InsertBill(bill) => {
                     insert_bills.push(bill);
                 }
+                Action::InsertIssue(name) => {
+                    insert_issues.insert(name);
+                }
+                Action::LinkBill {
+                    bill,
+                    sponsors,
+                    issues,
+                } => {
+                    for sponsor in sponsors {
+                        bill_sponsors.push((bill.clone(), sponsor));
+                    }
+                    for issue in issues {
+                        bill_issues.push((bill.clone(), issue));
+                    }
+                }
             }
         }
 
@@ -238,11 +284,13 @@ pub async fn update<L: Legiscan, P: AsRef<Path>>(
         )
         .await?;
         let read_conn = &conn;
+
+        // Get the district IDs we just inserted, indexing them by name.
         let district_ids = try_join_all(insert_districts.into_iter().map(|district| async move {
             match find_district(read_conn, district.state, district.name.clone()).await? {
                 Some(found) => Ok((district.name, found.id)),
                 None => Err(Error::msg(format!(
-                    "ICE: expected to find district {} {} after inserting it, but did not",
+                    "ICE: expected to find district {} {} after inserting it",
                     district.state, &district.name
                 ))),
             }
@@ -251,21 +299,90 @@ pub async fn update<L: Legiscan, P: AsRef<Path>>(
         .into_iter()
         .collect::<HashMap<_, _>>();
 
+        // Build and insert people based on the district IDs.
         conn.insert::<schema::Legislator, _>(
-            insert_people
-                .into_iter()
-                .chain(build_people.into_iter().map(|(district, build)| {
-                    let district = district_ids.get(&district).ok_or_else(||
-                        Error::msg(format!("ICE: expected to find district {district} after inserting it, but did not", )))?;
-                    Ok(build(*district))
-                }).collect::<Result<Vec<_>, Error>>()?),
+            insert_people.into_iter().chain(
+                build_people
+                    .into_iter()
+                    .map(|(district, build)| {
+                        let district = district_ids.get(&district).ok_or_else(|| {
+                            Error::msg(format!(
+                                "ICE: expected to find district {district} after inserting it"
+                            ))
+                        })?;
+                        Ok(build(*district))
+                    })
+                    .collect::<Result<Vec<_>, Error>>()?,
+            ),
         )
         .await?;
 
+        // Insert issues.
+        conn.insert::<schema::Issue, _>(
+            insert_issues
+                .into_iter()
+                .map(|name| schema::issue::IssueInput { name }),
+        )
+        .await?;
+
+        // Insert bills.
         conn.insert::<schema::Bill, _>(insert_bills).await?;
 
         // Finally, add relations between the newly inserted data (bills to sponsors and issues).
-        // TODO support relation population in relation-graphql.
+        let read_conn = &conn;
+        let (bill_sponsors, bill_issues) = try_join(
+            try_join_all(
+                bill_sponsors
+                    .into_iter()
+                    .map(|(bill_id, sponsor_id)| async move {
+                        let bill = match find_bill(read_conn, bill_id.clone()).await? {
+                            Some(found) => found.id,
+                            None => {
+                                return Err(Error::msg(format!(
+                                    "ICE: expected to find bill {bill_id} after inserting it"
+                                )))
+                            }
+                        };
+                        let sponsor = match find_person(read_conn, sponsor_id.clone()).await? {
+                            Some(found) => found.id,
+                            None => {
+                                return Err(Error::msg(format!(
+                                    "ICE: expected to find sponsor {sponsor_id} after inserting it"
+                                )))
+                            }
+                        };
+                        Ok((bill, sponsor))
+                    }),
+            ),
+            try_join_all(
+                bill_issues
+                    .into_iter()
+                    .map(|(bill_id, issue_name)| async move {
+                        let bill = match find_bill(read_conn, bill_id.clone()).await? {
+                            Some(found) => found.id,
+                            None => {
+                                return Err(Error::msg(format!(
+                                    "ICE: expected to find bill {bill_id} after inserting it"
+                                )))
+                            }
+                        };
+                        let issue = match find_issue(read_conn, issue_name.clone()).await? {
+                            Some(found) => found.id,
+                            None => {
+                                return Err(Error::msg(format!(
+                                    "ICE: expected to find issue {issue_name} after inserting it"
+                                )))
+                            }
+                        };
+                        Ok((bill, issue))
+                    }),
+            ),
+        )
+        .await?;
+        conn.populate_relation::<schema::bill::fields::Sponsors, _>(bill_sponsors)
+            .await?;
+        conn.populate_relation::<schema::bill::fields::Issues, _>(bill_issues)
+            .await?;
     }
 
     Ok(())
@@ -275,6 +392,12 @@ pub async fn update<L: Legiscan, P: AsRef<Path>>(
 enum Action {
     InsertDistrict(InsertDistrict),
     InsertBill(schema::bill::BillInput),
+    InsertIssue(String),
+    LinkBill {
+        bill: String,
+        sponsors: Vec<String>,
+        issues: Vec<String>,
+    },
     InsertPerson(schema::legislator::LegislatorInput),
     BuildPerson {
         district: String,
@@ -314,6 +437,16 @@ async fn find_person(conn: &Connection, id: String) -> Result<Option<schema::Leg
         conn,
         schema::Legislator::has()
             .legiscan_id(StringPredicate::Is(Value::Lit(id)))
+            .into(),
+    )
+    .await
+}
+
+async fn find_issue(conn: &Connection, id: String) -> Result<Option<schema::Issue>, Error> {
+    find_one(
+        conn,
+        schema::Issue::has()
+            .name(StringPredicate::Is(Value::Lit(id)))
             .into(),
     )
     .await
