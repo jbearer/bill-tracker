@@ -10,6 +10,7 @@ async-std = "1.12"
 async-trait = "0.1"
 base64 = "0.21"
 clap = { version = "4.2", features = ["derive", "env"] }
+copy_dir = "0.1"
 derive_more = "0.99"
 futures = "0.3"
 relational-graphql = { git = "https://github.com/jbearer/relational-graphql.git" }

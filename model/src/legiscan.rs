@@ -8,8 +8,10 @@ use std::path::Path;
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 
 mod client;
+mod local;
 
 pub use client::Client;
+pub use local::LocalClient;
 
 /// A Legiscan client.
 #[async_trait]

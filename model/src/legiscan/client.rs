@@ -4,7 +4,7 @@ use super::{Legiscan, Name, Party, State, Status};
 use anyhow::Error;
 use async_trait::async_trait;
 use base64::prelude::*;
-use derive_more::Into;
+use derive_more::{From, Into};
 use serde::{
     de::{DeserializeOwned, Deserializer, Error as _},
     Deserialize, Serialize,
@@ -82,7 +82,7 @@ impl Legiscan for Client {
 ///
 /// This trait represents the nested struct with the actual response payload, which can be extracted
 /// from the `"data": { ... }` container.
-trait ResponseBody: Sized {
+pub(super) trait ResponseBody: Sized {
     /// The container of this payload.
     type Container: DeserializeOwned + Into<Self>;
 }
@@ -105,7 +105,7 @@ struct Alert {
 
 /// Response from the `getDatasetList` endpoint.
 #[derive(Clone, Debug, Deserialize, Serialize, Into)]
-struct DatasetListResponse {
+pub(super) struct DatasetListResponse {
     datasetlist: Vec<DatasetMetadata>,
 }
 
@@ -167,6 +167,7 @@ struct Dataset {
 /// A compressed Zip archive containing a Legiscan dataset.
 ///
 /// This archive can be extracted from the response to a `getDataset` request.
+#[derive(Clone, Debug)]
 pub struct CompressedDataset {
     zip: ZipArchive<Cursor<Vec<u8>>>,
 }
@@ -193,10 +194,7 @@ impl super::Dataset for CompressedDataset {
     }
 
     fn people(&self) -> Self::People<'_> {
-        People(CompressedDatasetIter::new(
-            self.zip.clone(),
-            "people".into(),
-        ))
+        CompressedDatasetIter::new(self.zip.clone(), "people".into()).into()
     }
 
     fn extract(&self, dir: impl AsRef<Path>) -> Result<(), Error> {
@@ -205,6 +203,7 @@ impl super::Dataset for CompressedDataset {
 }
 
 /// An iterator over a compressed dataset yield data entries of type `T`.
+#[derive(Clone, Debug)]
 pub struct CompressedDatasetIter<T, R> {
     zip: ZipArchive<R>,
     entity: String,
@@ -271,7 +270,7 @@ impl<T: ResponseBody, R: Read + Seek> Iterator for CompressedDatasetIter<T, R> {
 
 /// Response from the `getBill` endpoint.
 #[derive(Clone, Debug, Deserialize, Serialize, Into)]
-struct BillResponse {
+pub(super) struct BillResponse {
     bill: Bill,
 }
 
@@ -377,7 +376,7 @@ impl super::Bill for Bill {
 
 /// Response from the `getPerson` endpoint.
 #[derive(Clone, Debug, Deserialize, Serialize, Into)]
-struct PersonResponse {
+pub(super) struct PersonResponse {
     person: Person,
 }
 
@@ -473,6 +472,7 @@ impl Person {
 ///
 /// This iterator transforms another iterator, fixing a Legiscan bug by filtering out "people" that
 /// are actually miscategorized subjects.
+#[derive(Clone, Debug, From)]
 pub struct People<I>(I);
 
 impl<I: Iterator<Item = Person>> Iterator for People<I> {
