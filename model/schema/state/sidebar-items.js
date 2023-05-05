@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["StatePredicate","A predicate used to filter States."],["StatesPredicate","A predicate used to filter collections of States."]],"mod":[["fields","Metadata about fields of  State"]],"struct":[["QuantifiedStatePredicate","A predicate which must match a certain quantity of States."],["StateHas","A predicate on fields of State."],["StateInput","An input to create a new State."]]};
+window.SIDEBAR_ITEMS = {"enum":["StatePredicate","StatesPredicate"],"mod":["fields"],"struct":["QuantifiedStatePredicate","StateHas","StateInput"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["PartiesPredicate","A predicate used to filter collections of Parties."],["PartyPredicate","A predicate used to filter Parties."]],"mod":[["fields","Metadata about fields of  Party"]],"struct":[["PartyHas","A predicate on fields of Party."],["PartyInput","An input to create a new Party."],["QuantifiedPartyPredicate","A predicate which must match a certain quantity of Parties."]]};
+window.SIDEBAR_ITEMS = {"enum":["PartiesPredicate","PartyPredicate"],"mod":["fields"],"struct":["PartyHas","PartyInput","QuantifiedPartyPredicate"]};

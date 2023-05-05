@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["setup","Perform one-time setup of the database."],["update","Update information in the database based on the latest bulk download from Legiscan."]],"struct":[["Options","Database connection options."]],"type":[["Connection","A connection to the database."]]};
+window.SIDEBAR_ITEMS = {"fn":["setup","update"],"struct":["Options"],"type":["Connection"]};
