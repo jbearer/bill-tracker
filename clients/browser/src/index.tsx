@@ -1,15 +1,45 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import './index.css'
 import App from './App'
 import reportWebVitals from './reportWebVitals'
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
+  RouterProvider
+} from 'react-router-dom'
+import { ThemeProvider } from 'react-jss'
+
+import defaultTheme from './themes/default'
+
+import Bill from './views/Bill'
+import Error from './views/Error'
+import Feed, { FeedType } from './views/Feed'
+import Issue from './views/Issue'
+import Legislator from './views/Legislator'
+import License from './views/License'
+
+const router = createBrowserRouter(
+  createRoutesFromElements(<Route path = "/" element={<App />} errorElement={<Error />}>
+    <Route path="/" element={<Feed />} />
+    <Route path="/feed/recent" element={<Feed type={FeedType.Recent}/>} />
+    <Route path="/feed/trending" element={<Feed type={FeedType.Trending}/>} />
+    <Route path="/feed/history" element={<Feed type={FeedType.History}/>} />
+    <Route path="/bills/:id" element={<Bill />} />
+    <Route path="/legislators/:id" element={<Legislator />} />
+    <Route path="/issues/:id" element={<Issue />} />
+    <Route path="/license" element={<License />} />
+  </Route>)
+)
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 )
 root.render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider theme={defaultTheme}>
+      <RouterProvider router={router} />
+    </ThemeProvider>
   </React.StrictMode>
 )
 
