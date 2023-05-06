@@ -17,61 +17,83 @@ const useStyles = createUseStyles((theme) => ({
   },
   section: {
     display: 'flex',
-    flexDirection: 'column'
-  },
-  menuLink: {
-    flex: '30px',
+    flexDirection: 'column',
 
-    paddingLeft: '12px',
-    paddingRight: '12px',
-    borderRadius: '5px',
-    textDecoration: 'none',
-    color: 'black',
+    '& > a': {
+      flex: '30px',
 
-    display: 'flex',
-    alignItems: 'center',
+      paddingLeft: '12px',
+      paddingRight: '12px',
+      borderRadius: '5px',
+      textDecoration: 'none',
+      color: 'black',
 
-    '&:hover': {
-      backgroundColor: '#f2f2f2'
+      display: 'flex',
+      alignItems: 'center',
+
+      '&:hover': {
+        backgroundColor: '#f2f2f2'
+      }
     }
   },
-  footerLink: {
-    color: '#828282',
-    textDecoration: 'none'
+  header: {
+    paddingLeft: '12px',
+    paddingRight: '12px'
+  },
+  footer: {
+    display: 'flex',
+    flexDirection: 'column',
+    paddingLeft: '12px',
+    paddingRight: '12px',
+
+    '& > a': {
+      color: '#828282',
+      textDecoration: 'none'
+    }
   }
 }))
 
-interface MenuLinkProps {
+interface SideMenuSectionProps {
+  children: React.ReactNode
+}
+
+export function SideMenuSection ({ children }: SideMenuSectionProps): JSX.Element {
+  const classes = useStyles()
+  return <div className={classes.section}>{children}</div>
+}
+
+interface SideMenuFooterProps {
+  children: React.ReactNode
+}
+
+export function SideMenuFooter ({ children }: SideMenuFooterProps): JSX.Element {
+  const classes = useStyles()
+  return <div className={classes.footer}>{children}</div>
+}
+
+interface SideMenuHeaderProps {
+  children: React.ReactNode
+}
+
+export function SideMenuHeader ({ children }: SideMenuHeaderProps): JSX.Element {
+  const classes = useStyles()
+  return <div className={classes.header}><b>{children}</b></div>
+}
+
+interface SideMenuLinkProps {
   to: string
-  children: any
+  children: React.ReactNode
 }
 
-function MenuLink ({ to, children }: MenuLinkProps): JSX.Element {
-  const classes = useStyles()
-  return (
-    <Link className={classes.menuLink} to={to}>
-      {children}
-    </Link>
-  )
+export function SideMenuLink ({ to, children }: SideMenuLinkProps): JSX.Element {
+  return <Link to={to}>{children}</Link>
 }
 
-export default function SideMenu (): JSX.Element {
+interface SideMenuProps {
+  children: React.ReactNode
+}
+
+export function SideMenu ({ children }: SideMenuProps): JSX.Element {
   const classes = useStyles()
-  return (
-    <div className={classes.sidebar}>
-      <div className={classes.section}>
-        <MenuLink to="/"><span>Home</span></MenuLink>
-        <MenuLink to="/feed/recent">What&apos;s new?</MenuLink>
-        <MenuLink to="/feed/history">History</MenuLink>
-        <MenuLink to="/feed/trending">Trending</MenuLink>
-      </div>
-      <div className={classes.section}>
-        <MenuLink to="/issues/1">An issue you might like</MenuLink>
-        <MenuLink to="/issues/2">Or how about this issue?</MenuLink>
-      </div>
-      <div className={classes.section}>
-          <Link className={classes.footerLink} to="/license">License</Link>
-      </div>
-    </div>
-  )
+  return <div className={classes.sidebar}>{children}</div>
 }

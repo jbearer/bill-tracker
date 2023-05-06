@@ -1,5 +1,7 @@
 import React from 'react'
 
+import MainLayout from 'layouts/main'
+
 interface FeedProps {
   type?: FeedType
 }
@@ -14,8 +16,10 @@ export enum FeedType {
 export default function Feed ({ type }: FeedProps): JSX.Element {
   type ??= FeedType.Home
   return (
-    <div>
-      {type} content
-    </div>
+    <MainLayout>
+      <div>
+        {type} content
+      </div>
+    </MainLayout>
   )
 }

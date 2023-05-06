@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Form, Link } from 'react-router-dom'
 import { createUseStyles } from 'react-jss'
 
 const useStyles = createUseStyles((theme) => ({
@@ -7,20 +7,30 @@ const useStyles = createUseStyles((theme) => ({
     display: 'flex',
     justifyContent: 'space-between',
     padding: '12px'
+  },
+  navItem: {
+    margin: '10px 25px'
+  },
+  searchBar: {
+    flex: '0 1 700px',
+    padding: '5px',
+    borderRadius: '12px',
+    fontSize: 24
   }
 }))
 
 export default function NavBar (): JSX.Element {
   const classes = useStyles()
+
   return (
     <nav className={classes.navBar}>
-      <div>
+      <div className={classes.navItem}>
         <Link to="/">Logo</Link>
       </div>
-      <div>
-        Search
-      </div>
-      <div>
+      <Form className={classes.navItem} action="/search">
+        <input type="text" name="query" placeholder="Search" className={classes.searchBar}/>
+      </Form>
+      <div className={classes.navItem}>
         Account
       </div>
     </nav>

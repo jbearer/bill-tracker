@@ -1,8 +1,10 @@
 import React from 'react'
 
+import MainLayout from 'layouts/main'
+
 export default function License (): JSX.Element {
   return (
-    <div>
+    <MainLayout>
     <p>
       <span>Some or all of the data provided by this website is sourced or adapated from data
       provided by</span> <a href="https://legiscan.com/">Legiscan</a> <span>under the Creative
@@ -279,6 +281,6 @@ export default function License (): JSX.Element {
            from the legal processes of any jurisdiction or authority.
 
     </p>
-    </div>
+    </MainLayout>
   )
 }
