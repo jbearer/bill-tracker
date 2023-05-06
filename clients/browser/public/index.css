@@ -1,0 +1,6 @@
+body {
+    /* Always show scroll bars so that the width of the page is the same on pages with scrolling
+       content and pages without. This prevents a resizing of full-width elements like the navbar
+       when switching between pages. */
+    overflow: scroll;
+}
