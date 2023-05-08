@@ -9,6 +9,7 @@ import {
   RouterProvider
 } from 'react-router-dom'
 import { ThemeProvider } from 'react-jss'
+import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client'
 
 import defaultTheme from 'themes/default'
 
@@ -19,6 +20,17 @@ import Issue from 'views/Issue'
 import Legislator from 'views/Legislator'
 import License from 'views/License'
 import Search, { SearchType } from 'views/Search'
+
+const apolloClient = new ApolloClient({
+  uri: process.env.REACT_APP_BILL_TRACKER_SERVER_URL,
+  cache: new InMemoryCache({
+    typePolicies: {
+      Query: {
+        fields: {}
+      }
+    }
+  })
+})
 
 const router = createBrowserRouter(
   createRoutesFromElements(<Route path = "/" element={<App />} errorElement={<Error />}>
@@ -45,9 +57,11 @@ const root = ReactDOM.createRoot(
 )
 root.render(
   <React.StrictMode>
-    <ThemeProvider theme={defaultTheme}>
-      <RouterProvider router={router} />
-    </ThemeProvider>
+    <ApolloProvider client={apolloClient}>
+      <ThemeProvider theme={defaultTheme}>
+        <RouterProvider router={router} />
+      </ThemeProvider>
+    </ApolloProvider>
   </React.StrictMode>
 )
 

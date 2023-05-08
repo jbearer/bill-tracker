@@ -31,7 +31,9 @@ const useStyles = createUseStyles((theme) => ({
   },
   content: {
     flex: '1 1 0',
-    overflow: 'auto'
+    overflow: 'auto',
+    paddingLeft: '5%',
+    paddingRight: '5%'
   },
   viewMenu: {
     extend: 'menu',

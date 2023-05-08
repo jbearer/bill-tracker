@@ -1,16 +1,19 @@
-interface ThemeColors {
+export interface ColorPalette {
   primary: string
   primaryLight: string
   primaryDark: string
   secondary: string
   secondaryLight: string
   secondaryDark: string
+  background: string
+  surface: string
+  error: string
 }
 
-type ColorPalette = {
-  on: ThemeColors
-} & ThemeColors
+export type ThemeColors = {
+  on: ColorPalette
+} & ColorPalette
 
 export interface Theme {
-  color: ColorPalette
+  color: ThemeColors
 }
