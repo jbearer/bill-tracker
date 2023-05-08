@@ -27,7 +27,16 @@ export function Entities ({ data }: Props): JSX.Element {
         return []
       }
 
-      return [<Entity key={node.id} data={node} />]
+      const type = node.__typename
+      if (typeof type !== 'string') {
+        return []
+      }
+      const id = node.id
+      if (typeof id !== 'number') {
+        return []
+      }
+
+      return [<Entity key={`${type}-${id}`} data={node} />]
     })
   })
 
