@@ -32,6 +32,10 @@ export class Theme {
     this._color = color
   }
 
+  background (opt: ColorOptions = {}): ColorStyle {
+    return this.color((p) => p.background, opt)
+  }
+
   surface (opt: ColorOptions = {}): ColorStyle {
     return this.color((p) => p.surface, opt)
   }

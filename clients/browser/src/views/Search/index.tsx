@@ -6,7 +6,7 @@ import { type DocumentNode } from 'graphql'
 import { BILL_FIELDS } from 'components/bill'
 import { ISSUE_FIELDS } from 'components/issue'
 import { LEGISLATOR_FIELDS } from 'components/legislator'
-import { SideMenu, SideMenuSection, SideMenuLink, SideMenuHeader } from 'components/side-menu'
+import { SideMenu, SideMenuSection, SideMenuNavLink, SideMenuHeader } from 'components/side-menu'
 import { renderGqlResponse } from 'helpers/gql'
 import MainLayout from 'layouts/main'
 import BillFilters from './components/bill-filters'
@@ -32,9 +32,9 @@ export default function Search ({ type }: SearchProps): JSX.Element {
     <SideMenu>
       <SideMenuSection>
         <SideMenuHeader>I&apos;m looking for...</SideMenuHeader>
-        <SideMenuLink to={`/search/bills?query=${query}`}>Bills</SideMenuLink>
-        <SideMenuLink to={`/search/issues?query=${query}`}>Issues</SideMenuLink>
-        <SideMenuLink to={`/search/people?query=${query}`}>People</SideMenuLink>
+        <SideMenuNavLink to={`/search/bills?query=${query}`}>Bills</SideMenuNavLink>
+        <SideMenuNavLink to={`/search/issues?query=${query}`}>Issues</SideMenuNavLink>
+        <SideMenuNavLink to={`/search/people?query=${query}`}>People</SideMenuNavLink>
       </SideMenuSection>
       {gqlFilters(type, setFilter)}
     </SideMenu>

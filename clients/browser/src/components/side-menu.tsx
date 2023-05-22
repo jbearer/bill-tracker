@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { createUseStyles } from 'react-jss'
 
 import { type Theme } from 'themes/theme'
@@ -9,6 +9,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
     display: 'flex',
     flexDirection: 'column',
     margin: '12px',
+    ...theme.background(),
 
     '& > :not(:first-child)': {
       // Section dividers.
@@ -27,7 +28,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
 
-    ...theme.surface()
+    ...theme.background()
   },
   section: {
     display: 'flex',
@@ -36,9 +37,11 @@ const useStyles = createUseStyles((theme: Theme) => ({
     '& > a': {
       extend: 'item',
       textDecoration: 'none',
-      '&:hover': {
-        backgroundColor: '#f2f2f2'
-      }
+      ...theme.background({ activateOnHover: true })
+    },
+
+    '& > a.active': {
+      ...theme.primary({ activateOnHover: true })
     }
   },
   header: {
@@ -92,6 +95,15 @@ interface SideMenuLinkProps {
 
 export function SideMenuLink ({ to, children }: SideMenuLinkProps): JSX.Element {
   return <Link to={to}>{children}</Link>
+}
+
+interface SideMenuNavLinkProps {
+  to: string
+  children: React.ReactNode
+}
+
+export function SideMenuNavLink ({ to, children }: SideMenuNavLinkProps): JSX.Element {
+  return <NavLink to={to}>{children}</NavLink>
 }
 
 interface SideMenuItemProps {
