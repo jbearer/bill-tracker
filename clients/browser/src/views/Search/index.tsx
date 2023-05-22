@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { gql, useQuery } from '@apollo/client'
 import { type DocumentNode } from 'graphql'
@@ -9,6 +9,8 @@ import { LEGISLATOR_FIELDS } from 'components/legislator'
 import { SideMenu, SideMenuSection, SideMenuLink, SideMenuHeader } from 'components/side-menu'
 import { renderGqlResponse } from 'helpers/gql'
 import MainLayout from 'layouts/main'
+import BillFilters from './components/bill-filters'
+import PeopleFilters from './components/people-filters'
 
 export enum SearchType {
   All,
@@ -24,6 +26,7 @@ interface SearchProps {
 export default function Search ({ type }: SearchProps): JSX.Element {
   const params = useSearchParams()[0]
   const query = params.get('query') ?? ''
+  const [filter, setFilter] = useState('{ has: {} }')
 
   const menu =
     <SideMenu>
@@ -33,9 +36,10 @@ export default function Search ({ type }: SearchProps): JSX.Element {
         <SideMenuLink to={`/search/issues?query=${query}`}>Issues</SideMenuLink>
         <SideMenuLink to={`/search/people?query=${query}`}>People</SideMenuLink>
       </SideMenuSection>
+      {gqlFilters(type, setFilter)}
     </SideMenu>
 
-  const res = useQuery(gqlQuery(type, query), { variables: {} })
+  const res = useQuery(gqlQuery(type, query, filter), { variables: {} })
   const content = renderGqlResponse(res)
 
   return (
@@ -45,7 +49,24 @@ export default function Search ({ type }: SearchProps): JSX.Element {
   )
 }
 
-function gqlQuery (type: SearchType, query: string): DocumentNode {
+function gqlFilters (type: SearchType, setFilter: (filter: string) => void): JSX.Element {
+  switch (type) {
+    case SearchType.All: {
+      return <React.Fragment />
+    }
+    case SearchType.Bills: {
+      return <BillFilters onFilterChange={setFilter} />
+    }
+    case SearchType.People: {
+      return <PeopleFilters onFilterChange={setFilter} />
+    }
+    case SearchType.Issues: {
+      return <React.Fragment />
+    }
+  }
+}
+
+function gqlQuery (type: SearchType, query: string, filter: string): DocumentNode {
   switch (type) {
     case SearchType.All:
       return gql`
@@ -80,7 +101,7 @@ function gqlQuery (type: SearchType, query: string): DocumentNode {
       return gql`
         ${BILL_FIELDS}
         query SearchBills {
-          bills {
+          bills(where: ${filter}) {
             edges {
               node {
                 ...BillFields
@@ -93,7 +114,7 @@ function gqlQuery (type: SearchType, query: string): DocumentNode {
       return gql`
         ${LEGISLATOR_FIELDS}
         query SearchPeople {
-          legislators {
+          legislators(where: ${filter}) {
             edges {
               node {
                 ...LegislatorFields
@@ -106,7 +127,7 @@ function gqlQuery (type: SearchType, query: string): DocumentNode {
       return gql`
         ${ISSUE_FIELDS}
         query SearchIssues {
-          issues {
+          issues(where: ${filter}) {
             edges {
               node {
                 ...IssueFields

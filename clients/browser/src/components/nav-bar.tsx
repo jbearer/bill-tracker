@@ -8,8 +8,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   navBar: {
     display: 'flex',
     justifyContent: 'space-between',
-    backgroundColor: theme.color.primaryDark,
-    color: theme.color.on.primaryDark
+    ...theme.primaryDark()
   },
   navItem: {
     margin: '10px 25px',
@@ -21,8 +20,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   logo: {
     textDecoration: 'none',
-    backgroundColor: theme.color.secondary,
-    color: theme.color.on.secondary
+    ...theme.secondary()
   },
   searchBar: {
     width: '100%',
@@ -30,8 +28,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
     margin: '2px',
     borderRadius: '12px',
     fontSize: 24,
-    backgroundColor: theme.color.primaryLight,
-    color: theme.color.on.primaryLight
+    ...theme.primaryLight()
   }
 }))
 

@@ -22,11 +22,10 @@ const useStyles = createUseStyles((theme: Theme) => ({
     borderRadius: '10px',
     borderStyle: 'solid',
     borderWidth: '2px',
-    borderColor: theme.color.on.background,
-    backgroundColor: theme.color.surface,
     margin: '10px',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    ...theme.surface({ border: true })
   },
   title: {
     display: 'flex',
@@ -34,11 +33,10 @@ const useStyles = createUseStyles((theme: Theme) => ({
 
     '& > a': {
       textDecoration: 'none',
-      backgroundColor: theme.color.primary,
-      color: theme.color.on.primary,
       fontWeight: 'bold',
       padding: '5px',
-      cursor: 'pointer'
+      cursor: 'pointer',
+      ...theme.primary()
     }
   }
 }))

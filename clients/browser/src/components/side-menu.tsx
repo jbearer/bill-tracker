@@ -2,7 +2,9 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { createUseStyles } from 'react-jss'
 
-const useStyles = createUseStyles((theme) => ({
+import { type Theme } from 'themes/theme'
+
+const useStyles = createUseStyles((theme: Theme) => ({
   sidebar: {
     display: 'flex',
     flexDirection: 'column',
@@ -15,22 +17,25 @@ const useStyles = createUseStyles((theme) => ({
       paddingTop: '12px'
     }
   },
+  item: {
+    flex: '30px',
+
+    paddingLeft: '12px',
+    paddingRight: '12px',
+    borderRadius: '5px',
+
+    display: 'flex',
+    alignItems: 'center',
+
+    ...theme.surface()
+  },
   section: {
     display: 'flex',
     flexDirection: 'column',
 
     '& > a': {
-      flex: '30px',
-
-      paddingLeft: '12px',
-      paddingRight: '12px',
-      borderRadius: '5px',
+      extend: 'item',
       textDecoration: 'none',
-      color: 'black',
-
-      display: 'flex',
-      alignItems: 'center',
-
       '&:hover': {
         backgroundColor: '#f2f2f2'
       }
@@ -87,6 +92,15 @@ interface SideMenuLinkProps {
 
 export function SideMenuLink ({ to, children }: SideMenuLinkProps): JSX.Element {
   return <Link to={to}>{children}</Link>
+}
+
+interface SideMenuItemProps {
+  children: React.ReactNode
+}
+
+export function SideMenuItem ({ children }: SideMenuItemProps): JSX.Element {
+  const classes = useStyles()
+  return <div className={classes.item}>{children}</div>
 }
 
 interface SideMenuProps {

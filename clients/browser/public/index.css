@@ -4,3 +4,7 @@ body {
        when switching between pages. */
     overflow: scroll;
 }
+
+* {
+    font-family: sans-serif;
+}
