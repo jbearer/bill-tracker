@@ -5,7 +5,7 @@ const colors: ColorPalette = {
   primaryLight: '#a3d28c',
   primaryDark: '#5c9b49',
 
-  secondary: '#a056b3',
+  secondary: '#ad7eb9',
   secondaryLight: '#d5b6dd',
   secondaryDark: '#8e32a4',
 

@@ -4,7 +4,7 @@ import { useQuery, gql } from '@apollo/client'
 
 import MainLayout from 'layouts/main'
 import { ISSUE_FIELDS } from 'components/issue'
-import { renderGqlResponse } from 'helpers/gql'
+import GqlResponse from 'components/gql-response'
 
 export default function Issue (): JSX.Element {
   const { id } = useParams()
@@ -27,9 +27,7 @@ export default function Issue (): JSX.Element {
     variables: { id: +id }
   })
 
-  const content = renderGqlResponse(res)
-
   return (
-    <MainLayout>{content}</MainLayout>
+    <MainLayout><GqlResponse response={res} /></MainLayout>
   )
 }

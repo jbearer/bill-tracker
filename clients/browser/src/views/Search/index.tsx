@@ -1,16 +1,21 @@
 import React, { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { gql, useQuery } from '@apollo/client'
+import { useSearchParams, Link } from 'react-router-dom'
+import { gql, useQuery, type QueryResult } from '@apollo/client'
 import { type DocumentNode } from 'graphql'
+import { createUseStyles } from 'react-jss'
 
 import { BILL_FIELDS } from 'components/bill'
 import { ISSUE_FIELDS } from 'components/issue'
 import { LEGISLATOR_FIELDS } from 'components/legislator'
 import { SideMenu, SideMenuSection, SideMenuNavLink, SideMenuHeader } from 'components/side-menu'
-import { renderGqlResponse } from 'helpers/gql'
+import GqlResponse from 'components/gql-response'
 import MainLayout from 'layouts/main'
 import BillFilters from './components/bill-filters'
 import PeopleFilters from './components/people-filters'
+import { Entities } from 'components/entity'
+import { type Theme } from 'themes/theme'
+
+const PREVIEW_COUNT = 5
 
 export enum SearchType {
   All,
@@ -40,13 +45,77 @@ export default function Search ({ type }: SearchProps): JSX.Element {
     </SideMenu>
 
   const res = useQuery(gqlQuery(type, query, filter), { variables: {} })
-  const content = renderGqlResponse(res)
+  const content = type === SearchType.All
+    ? <Preview response={res} query={query} />
+    : <GqlResponse response={res} />
 
   return (
     <MainLayout menu={menu}>
       {content}
     </MainLayout>
   )
+}
+
+interface ResultsProps {
+  response: QueryResult
+}
+
+const usePreviewStyles = createUseStyles((theme: Theme) => ({
+  section: {
+    ...theme.surface({ border: true }),
+    borderStyle: 'solid',
+    borderWidth: '1px',
+    borderRadius: '15px',
+    margin: '15px'
+  },
+  header: {
+    padding: '10px',
+    margin: '0',
+    ...theme.secondary()
+  },
+  seeMore: {
+    ...theme.secondaryLight({ activateOnHover: true }),
+    textDecoration: 'none',
+    borderRadius: '5px',
+
+    margin: '10px',
+    padding: '10px',
+
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center'
+  }
+}))
+
+function Preview ({ response, query }: ResultsProps & { query: string }): JSX.Element {
+  if (response.loading) return <p>Loading...</p>
+  if (response.error != null) return <p>Error : {response.error.message}</p>
+
+  const bills = response.data.bills
+  const people = response.data.legislators
+  const issues = response.data.issues
+
+  return <>
+    <PreviewSection name="Bills" data={{ edges: bills }} url={`/search/bills?query=${query}`} />
+    <PreviewSection name="People" data={{ edges: people }} url={`/search/people?query=${query}`}/>
+    <PreviewSection name="Issues" data={{ edges: issues }} url={`/search/issues?query=${query}`} />
+  </>
+}
+
+interface SectionProps {
+  name: string
+  data: any
+  url: string
+}
+
+function PreviewSection ({ name, data, url }: SectionProps): JSX.Element {
+  const classes = usePreviewStyles()
+
+  return <div className={classes.section}>
+    <h3 className={classes.header}>{name}</h3>
+    <Entities data={data} />
+    <Link className={classes.seeMore} to={url}>See more</Link>
+  </div>
 }
 
 function gqlFilters (type: SearchType, setFilter: (filter: string) => void): JSX.Element {
@@ -74,21 +143,21 @@ function gqlQuery (type: SearchType, query: string, filter: string): DocumentNod
         ${LEGISLATOR_FIELDS}
         ${ISSUE_FIELDS}
         query SearchAll {
-          bills {
+          bills(first: ${PREVIEW_COUNT}) {
             edges {
               node {
                 ...BillFields
               }
             }
           }
-          legislators {
+          legislators(first: ${PREVIEW_COUNT}) {
             edges {
               node {
                 ...LegislatorFields
               }
             }
           }
-          issues {
+          issues(first: ${PREVIEW_COUNT}) {
             edges {
               node {
                 ...IssueFields
