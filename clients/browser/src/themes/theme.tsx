@@ -19,8 +19,22 @@ export type ThemeColors = {
 } & OnColorPalette
 
 export interface ColorOptions {
-  border?: boolean
+  border?: BorderOptions
   activateOnHover?: boolean
+}
+
+export interface BorderOptions {
+  radius?: string | number
+  style?: string
+  width?: string | number
+  only?: Border[]
+}
+
+export enum Border {
+  Top,
+  Bottom,
+  Left,
+  Right
 }
 
 export type ColorStyle = Record<string, any>
@@ -69,8 +83,32 @@ export class Theme {
       backgroundColor: selector(this._color),
       color: selector(this._color.on)
     }
-    if (opt.border ?? false) {
+    if (opt.border !== undefined) {
+      if (opt.border.only === undefined) {
+        style.borderStyle = opt.border.style ?? 'solid'
+      } else {
+        for (const pos of opt.border.only) {
+          switch (pos) {
+            case Border.Top:
+              style.borderTop = opt.border.style ?? 'solid'
+              break
+            case Border.Bottom:
+              style.borderBottom = opt.border.style ?? 'solid'
+              break
+            case Border.Left:
+              style.borderLeft = opt.border.style ?? 'solid'
+              break
+            case Border.Right:
+              style.borderRight = opt.border.style ?? 'solid'
+              break
+          }
+        }
+      }
+
       style.borderColor = selector(this._color.on)
+      style.borderRadius = opt.border.radius ?? 0
+      style.borderWidth = opt.border.width ?? '1px'
+      style.overflow = 'hidden' // This makes child elements clip to the curved border
     }
     if (opt.activateOnHover ?? false) {
       style['&:hover'] = {

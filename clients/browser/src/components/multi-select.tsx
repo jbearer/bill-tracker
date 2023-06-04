@@ -3,7 +3,7 @@ import { createUseStyles } from 'react-jss'
 import Fuse from 'fuse.js'
 
 import { ClickAwayListener } from 'components/click-away-listener'
-import { type Theme } from 'themes/theme'
+import { type Theme, Border } from 'themes/theme'
 
 const useStyles = createUseStyles((theme: Theme) => ({
   container: {
@@ -18,8 +18,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   selectionItem: {
     padding: '2px',
     margin: '2px',
-    borderRadius: '5px',
-    ...theme.secondaryLight()
+    ...theme.secondaryLight({ border: { radius: '5px', width: 0 } })
   },
   selectionName: {
     padding: '0px 2px'
@@ -35,16 +34,14 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   modal: {
     position: 'absolute',
-    borderRadius: '5px',
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    ...theme.surface({ border: true })
+    boxShadow: '0.02em 0.02em',
+    ...theme.surface({ border: { radius: '5px' } })
   },
   filter: {
     ...theme.surface()
   },
   filterInput: {
-    borderRadius: '5px',
+    ...theme.surface({ border: { radius: '5px', width: 0 } }),
     padding: '5px',
     margin: '5px'
   },
@@ -54,10 +51,8 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   option: {
     cursor: 'pointer',
-    borderWidth: '1px',
-    borderTopStyle: 'solid',
     padding: '5px',
-    ...theme.surface({ border: true, activateOnHover: true })
+    ...theme.surface({ border: { only: [Border.Top] }, activateOnHover: true })
   },
   selectedOption: {
     extend: 'option',

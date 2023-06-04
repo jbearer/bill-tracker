@@ -2,7 +2,7 @@ import React from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { createUseStyles } from 'react-jss'
 
-import { type Theme } from 'themes/theme'
+import { type Theme, Border } from 'themes/theme'
 
 const useStyles = createUseStyles((theme: Theme) => ({
   sidebar: {
@@ -13,7 +13,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
 
     '& > :not(:first-child)': {
       // Section dividers.
-      borderTop: '1px solid',
+      ...theme.background({ border: { only: [Border.Top] } }),
       marginTop: '12px',
       paddingTop: '12px'
     }
@@ -23,12 +23,10 @@ const useStyles = createUseStyles((theme: Theme) => ({
 
     paddingLeft: '12px',
     paddingRight: '12px',
-    borderRadius: '5px',
-
     display: 'flex',
     alignItems: 'center',
 
-    ...theme.background()
+    ...theme.background({ border: { radius: '5px', width: 0 } })
   },
   section: {
     display: 'flex',

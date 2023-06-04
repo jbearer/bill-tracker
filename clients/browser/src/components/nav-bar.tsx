@@ -24,11 +24,14 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   searchBar: {
     width: '100%',
-    padding: '5px',
+    padding: '5px 10px',
     margin: '2px',
-    borderRadius: '12px',
     fontSize: 24,
-    ...theme.primaryLight()
+    '&:focus': {
+      outline: 'none'
+    },
+    ...theme.primaryLight({ border: { radius: '12px', width: 0 } }),
+    boxShadow: 'inset 0.02em 0.02em 0.01em 0.01em'
   }
 }))
 

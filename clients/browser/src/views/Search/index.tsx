@@ -62,10 +62,7 @@ interface ResultsProps {
 
 const usePreviewStyles = createUseStyles((theme: Theme) => ({
   section: {
-    ...theme.surface({ border: true }),
-    borderStyle: 'solid',
-    borderWidth: '1px',
-    borderRadius: '15px',
+    ...theme.surface({ border: { radius: '15px' } }),
     margin: '15px'
   },
   header: {
@@ -74,9 +71,8 @@ const usePreviewStyles = createUseStyles((theme: Theme) => ({
     ...theme.secondary()
   },
   seeMore: {
-    ...theme.secondaryLight({ activateOnHover: true }),
     textDecoration: 'none',
-    borderRadius: '5px',
+    ...theme.secondaryLight({ activateOnHover: true, border: { radius: '5px', width: 0 } }),
 
     margin: '10px',
     padding: '10px',
