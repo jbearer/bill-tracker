@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { gql, useQuery, type QueryResult } from '@apollo/client'
 import { type DocumentNode } from 'graphql'
 import { createUseStyles } from 'react-jss'
+import InfiniteScroll from 'react-infinite-scroll-component'
 
 import { BILL_FIELDS } from 'components/bill'
 import { ISSUE_FIELDS } from 'components/issue'
@@ -16,6 +17,7 @@ import { Entities } from 'components/entity'
 import { type Theme } from 'themes/theme'
 
 const PREVIEW_COUNT = 5
+const PAGE_COUNT = 50
 
 export enum SearchType {
   All,
@@ -45,9 +47,10 @@ export default function Search ({ type }: SearchProps): JSX.Element {
     </SideMenu>
 
   const res = useQuery(gqlQuery(type, query, filter), { variables: {} })
-  const content = type === SearchType.All
+  const resKey = gqlResponseKey(type)
+  const content = resKey === undefined
     ? <Preview response={res} query={query} />
-    : <GqlResponse response={res} />
+    : <Results response={res} entity={resKey} />
 
   return (
     <MainLayout menu={menu}>
@@ -58,6 +61,31 @@ export default function Search ({ type }: SearchProps): JSX.Element {
 
 interface ResultsProps {
   response: QueryResult
+}
+
+function Results ({ response, entity }: ResultsProps & { entity: string }): JSX.Element {
+  const data = response.data?.[entity]
+  const pageInfo = data?.pageInfo ?? {
+    hasNextPage: true,
+    endCursor: undefined
+  }
+  const length = Array.from(data?.edges ?? []).length
+
+  return <InfiniteScroll
+    dataLength={length}
+    next={async () => {
+      await response.fetchMore({
+        variables: {
+          cursor: pageInfo.endCursor
+        }
+      })
+    }}
+    hasMore={pageInfo.hasNextPage}
+    loader={<p>Loading...</p>}
+    hasChildren={!response.loading}
+  >
+    <GqlResponse response={response} />
+  </InfiniteScroll>
 }
 
 const usePreviewStyles = createUseStyles((theme: Theme) => ({
@@ -87,14 +115,26 @@ function Preview ({ response, query }: ResultsProps & { query: string }): JSX.El
   if (response.loading) return <p>Loading...</p>
   if (response.error != null) return <p>Error : {response.error.message}</p>
 
-  const bills = response.data.bills
-  const people = response.data.legislators
-  const issues = response.data.issues
+  const bills = {
+    bills: {
+      edges: Array.from(response.data.bills.edges).slice(0, PREVIEW_COUNT)
+    }
+  }
+  const people = {
+    people: {
+      edges: Array.from(response.data.legislators.edges).slice(0, PREVIEW_COUNT)
+    }
+  }
+  const issues = {
+    issues: {
+      edges: Array.from(response.data.issues.edges).slice(0, PREVIEW_COUNT)
+    }
+  }
 
   return <>
-    <PreviewSection name="Bills" data={{ edges: bills }} url={`/search/bills?query=${query}`} />
-    <PreviewSection name="People" data={{ edges: people }} url={`/search/people?query=${query}`}/>
-    <PreviewSection name="Issues" data={{ edges: issues }} url={`/search/issues?query=${query}`} />
+    <PreviewSection name="Bills" data={bills} url={`/search/bills?query=${query}`} />
+    <PreviewSection name="People" data={people} url={`/search/people?query=${query}`}/>
+    <PreviewSection name="Issues" data={issues} url={`/search/issues?query=${query}`} />
   </>
 }
 
@@ -132,6 +172,23 @@ function gqlFilters (type: SearchType, setFilter: (filter: string) => void): JSX
 }
 
 function gqlQuery (type: SearchType, query: string, filter: string): DocumentNode {
+  const entityQuery = (name: string, fields: DocumentNode, fieldsFragment: string): DocumentNode => gql`
+    ${fields}
+    query search${name}($cursor: String) {
+      ${name}(where: ${filter}, first: ${PAGE_COUNT}, after: $cursor) {
+        edges {
+          node {
+            ...${fieldsFragment}
+          }
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+        }
+      }
+    }
+  `
+
   switch (type) {
     case SearchType.All:
       return gql`
@@ -163,43 +220,19 @@ function gqlQuery (type: SearchType, query: string, filter: string): DocumentNod
         }
       `
     case SearchType.Bills:
-      return gql`
-        ${BILL_FIELDS}
-        query SearchBills {
-          bills(where: ${filter}) {
-            edges {
-              node {
-                ...BillFields
-              }
-            }
-          }
-        }
-      `
+      return entityQuery('bills', BILL_FIELDS, 'BillFields')
     case SearchType.People:
-      return gql`
-        ${LEGISLATOR_FIELDS}
-        query SearchPeople {
-          legislators(where: ${filter}) {
-            edges {
-              node {
-                ...LegislatorFields
-              }
-            }
-          }
-        }
-      `
+      return entityQuery('legislators', LEGISLATOR_FIELDS, 'LegislatorFields')
     case SearchType.Issues:
-      return gql`
-        ${ISSUE_FIELDS}
-        query SearchIssues {
-          issues(where: ${filter}) {
-            edges {
-              node {
-                ...IssueFields
-              }
-            }
-          }
-        }
-      `
+      return entityQuery('issues', ISSUE_FIELDS, 'IssueFields')
+  }
+}
+
+function gqlResponseKey (type: SearchType): string | undefined {
+  switch (type) {
+    case SearchType.All: return undefined
+    case SearchType.Bills: return 'bills'
+    case SearchType.People: return 'legislators'
+    case SearchType.Issues: return 'issues'
   }
 }

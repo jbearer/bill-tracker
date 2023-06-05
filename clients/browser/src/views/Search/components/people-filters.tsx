@@ -83,6 +83,7 @@ query {
   states {
     edges {
       node {
+        id
         name
       }
     }

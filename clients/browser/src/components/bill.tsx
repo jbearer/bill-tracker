@@ -12,13 +12,14 @@ interface Props {
 export const BILL_FIELDS: DocumentNode = gql`
   fragment BillFields on Bill {
     id
-    state { abbreviation }
+    state { id abbreviation }
     name
     title
     summary
     issues {
       edges {
         node {
+          id
           name
         }
       }

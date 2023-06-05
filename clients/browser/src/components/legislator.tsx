@@ -13,10 +13,12 @@ export const LEGISLATOR_FIELDS: DocumentNode = gql`
   fragment LegislatorFields on Legislator {
     id
     district {
+      id
       name
-      state { abbreviation }
+      state { id abbreviation }
     }
     party {
+      id
       abbreviation
     }
     firstName

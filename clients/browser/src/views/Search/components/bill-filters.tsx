@@ -119,6 +119,7 @@ query {
   states {
     edges {
       node {
+        id
         name
       }
     }
@@ -131,6 +132,7 @@ query {
   issues {
     edges {
       node {
+        id
         name
       }
     }

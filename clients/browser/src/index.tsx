@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom'
 import { ThemeProvider } from 'react-jss'
 import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client'
+import { relayStylePagination } from '@apollo/client/utilities'
 
 import defaultTheme from 'themes/default'
 
@@ -26,7 +27,11 @@ const apolloClient = new ApolloClient({
   cache: new InMemoryCache({
     typePolicies: {
       Query: {
-        fields: {}
+        fields: {
+          bills: relayStylePagination(['where']),
+          legislators: relayStylePagination(['where']),
+          issues: relayStylePagination(['where'])
+        }
       }
     }
   })
