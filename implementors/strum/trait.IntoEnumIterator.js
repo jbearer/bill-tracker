@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"model":[["impl IntoEnumIterator for <a class=\"enum\" href=\"model/legiscan/enum.State.html\" title=\"enum model::legiscan::State\">State</a>"],["impl IntoEnumIterator for <a class=\"enum\" href=\"model/legiscan/enum.Party.html\" title=\"enum model::legiscan::Party\">Party</a>"]]
+"model":[["impl IntoEnumIterator for <a class=\"enum\" href=\"model/legiscan/enum.Party.html\" title=\"enum model::legiscan::Party\">Party</a>"],["impl IntoEnumIterator for <a class=\"enum\" href=\"model/legiscan/enum.State.html\" title=\"enum model::legiscan::State\">State</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
