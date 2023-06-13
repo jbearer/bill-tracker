@@ -299,10 +299,7 @@ class Toggles<T> {
 
   _registerNewToggles (): void {
     for (const toggle of this._newToggles) {
-      // Trigger the listeners immediately to alert them of the new toggle.
-      this._onToggleListeners.forEach((f) => { f(toggle) })
-
-      // Trigger the listeners again if this item's selected state ever changes.
+      // Trigger the listeners if this item's selected state ever changes.
       toggle._onToggleListeners.push((_) => {
         this._onToggleListeners.forEach((f) => { f(toggle) })
       })

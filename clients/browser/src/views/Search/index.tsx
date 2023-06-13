@@ -33,7 +33,25 @@ interface SearchProps {
 export default function Search ({ type }: SearchProps): JSX.Element {
   const params = useSearchParams()[0]
   const query = params.get('query') ?? ''
-  const [filter, setFilter] = useState('{ has: {} }')
+  const [filter, setFilter] = useState<any>(() => ({ has: {} }))
+
+  return <SearchWithFilter
+    type={type}
+    query={query}
+    filter={filter}
+    setFilter={setFilter}
+  />
+}
+
+interface SearchWithFilterProps extends SearchProps {
+  query: string
+  filter: any
+  setFilter: (filter: any) => void
+}
+
+function SearchWithFilter ({ type, query, filter, setFilter }: SearchWithFilterProps): JSX.Element {
+  const variables: Record<string, any> = { query, filter }
+  const res = useQuery(gqlQuery(type), { variables })
 
   const menu =
     <SideMenu>
@@ -46,7 +64,6 @@ export default function Search ({ type }: SearchProps): JSX.Element {
       {gqlFilters(type, setFilter)}
     </SideMenu>
 
-  const res = useQuery(gqlQuery(type, query, filter), { variables: {} })
   const resKey = gqlResponseKey(type)
   const content = resKey === undefined
     ? <Preview response={res} query={query} />
@@ -154,7 +171,7 @@ function PreviewSection ({ name, data, url }: SectionProps): JSX.Element {
   </div>
 }
 
-function gqlFilters (type: SearchType, setFilter: (filter: string) => void): JSX.Element {
+function gqlFilters (type: SearchType, setFilter: (filter: any) => void): JSX.Element {
   switch (type) {
     case SearchType.All: {
       return <React.Fragment />
@@ -171,11 +188,20 @@ function gqlFilters (type: SearchType, setFilter: (filter: string) => void): JSX
   }
 }
 
-function gqlQuery (type: SearchType, query: string, filter: string): DocumentNode {
-  const entityQuery = (name: string, fields: DocumentNode, fieldsFragment: string): DocumentNode => gql`
+function gqlQuery (type: SearchType): DocumentNode {
+  const entityQuery = (name: string, predicate: string, fields: DocumentNode, fieldsFragment: string): DocumentNode => gql`
     ${fields}
-    query search${name}($cursor: String) {
-      ${name}(where: ${filter}, first: ${PAGE_COUNT}, after: $cursor) {
+    query search${name}($cursor: String, $query: String, $filter: ${predicate}) {
+      ${name}(
+        where: {
+          all: [
+            $filter,
+            { matches: $query },
+          ]
+        },
+        first: ${PAGE_COUNT},
+        after: $cursor,
+      ) {
         edges {
           node {
             ...${fieldsFragment}
@@ -195,22 +221,22 @@ function gqlQuery (type: SearchType, query: string, filter: string): DocumentNod
         ${BILL_FIELDS}
         ${LEGISLATOR_FIELDS}
         ${ISSUE_FIELDS}
-        query SearchAll {
-          bills(first: ${PREVIEW_COUNT}) {
+        query SearchAll($query: String) {
+          bills(first: ${PREVIEW_COUNT}, where: { matches: $query }) {
             edges {
               node {
                 ...BillFields
               }
             }
           }
-          legislators(first: ${PREVIEW_COUNT}) {
+          legislators(first: ${PREVIEW_COUNT}, where: { matches: $query }) {
             edges {
               node {
                 ...LegislatorFields
               }
             }
           }
-          issues(first: ${PREVIEW_COUNT}) {
+          issues(first: ${PREVIEW_COUNT}, where: { matches: $query }) {
             edges {
               node {
                 ...IssueFields
@@ -220,11 +246,11 @@ function gqlQuery (type: SearchType, query: string, filter: string): DocumentNod
         }
       `
     case SearchType.Bills:
-      return entityQuery('bills', BILL_FIELDS, 'BillFields')
+      return entityQuery('bills', 'BillPredicate', BILL_FIELDS, 'BillFields')
     case SearchType.People:
-      return entityQuery('legislators', LEGISLATOR_FIELDS, 'LegislatorFields')
+      return entityQuery('legislators', 'LegislatorPredicate', LEGISLATOR_FIELDS, 'LegislatorFields')
     case SearchType.Issues:
-      return entityQuery('issues', ISSUE_FIELDS, 'IssueFields')
+      return entityQuery('issues', 'IssuePredicate', ISSUE_FIELDS, 'IssueFields')
   }
 }
 

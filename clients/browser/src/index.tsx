@@ -41,14 +41,14 @@ const router = createBrowserRouter(
   createRoutesFromElements(<Route path = "/" element={<App />} errorElement={<Error />}>
     <Route path="/" element={<Feed />} />
 
-    <Route path="/feed/recent" element={<Feed type={FeedType.Recent}/>} />
-    <Route path="/feed/trending" element={<Feed type={FeedType.Trending}/>} />
-    <Route path="/feed/history" element={<Feed type={FeedType.History}/>} />
+    <Route path="/feed/recent" element={<Feed key="recent" type={FeedType.Recent}/>} />
+    <Route path="/feed/trending" element={<Feed key="trending" type={FeedType.Trending}/>} />
+    <Route path="/feed/history" element={<Feed key="history" type={FeedType.History}/>} />
 
-    <Route path="/search" element={<Search type={SearchType.All}/>} />
-    <Route path="/search/bills" element={<Search type={SearchType.Bills}/>} />
-    <Route path="/search/people" element={<Search type={SearchType.People}/>} />
-    <Route path="/search/issues" element={<Search type={SearchType.Issues}/>} />
+    <Route path="/search" element={<Search key="all" type={SearchType.All}/>} />
+    <Route path="/search/bills" element={<Search key="bills" type={SearchType.Bills}/>} />
+    <Route path="/search/people" element={<Search key="people" type={SearchType.People}/>} />
+    <Route path="/search/issues" element={<Search key="issues" type={SearchType.Issues}/>} />
 
     <Route path="/bills/:id" element={<Bill />} />
     <Route path="/legislators/:id" element={<Legislator />} />
