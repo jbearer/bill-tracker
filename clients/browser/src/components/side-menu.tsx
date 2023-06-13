@@ -26,7 +26,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
 
-    ...theme.background({ border: { radius: '5px', width: 0 } })
+    ...theme.background()
   },
   section: {
     display: 'flex',
@@ -35,7 +35,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
     '& > a': {
       extend: 'item',
       textDecoration: 'none',
-      ...theme.background({ activateOnHover: true })
+      ...theme.background({ border: { radius: '5px', width: 0 }, activateOnHover: true })
     },
 
     '& > a.active': {
