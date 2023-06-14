@@ -145,6 +145,22 @@
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The schema describing the entities and relationships in the GraphQL API.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::db;
@@ -158,8 +174,10 @@
     <span class="kw">pub </span>id: Id,
     <span class="doccomment">/// The 2-letter abbreviation for this state as recognized by the US postal service.
     </span><span class="attr">#[resource(primary)]
+    #[resource(searchable)]
     </span><span class="kw">pub </span>abbreviation: String,
     <span class="doccomment">/// The full name of this state.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// Bills introduced in this state.
     </span><span class="kw">pub </span>bills: BelongsTo&lt;Bill&gt;,
@@ -172,11 +190,13 @@
 </span><span class="kw">pub struct </span>District {
     <span class="kw">pub </span>id: Id,
     <span class="doccomment">/// The state containing this district.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>state: State,
     <span class="doccomment">/// The name of the district.
     ///
     /// This is usually a number (like &quot;37&quot; in CA-37), but not always -- some states have an
     /// at-large district with ID &quot;AL&quot;.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// Representatives of this district in the state legislature.
     </span><span class="kw">pub </span>representatives: BelongsTo&lt;Legislator&gt;,
@@ -194,20 +214,24 @@
     ///
     /// This is frequently a combination of a chamber identifier (like &quot;SB&quot; for senate bill) and a
     /// bill number, as in &quot;SB-999&quot;. It is always unique within a session.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// A readable title for the bill.
     ///
     /// Compared to `name`, `title` is similarly brief, more descriptive, but less precise (it is
     /// freeform language, and not guranteed unique within a session, although in practice it
     /// usually will be).
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>title: String,
     <span class="doccomment">/// A short summary of the effects of the bill.
     ///
     /// The summary may be provided by the sponsors of the bill or a non-partisan office, but it is
     /// important to remember that it is just some person&#39;s or group of people&#39;s interpretation of
     /// the bill. Unlike the text of the bill itself, it is not legally binding.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>summary: String,
     <span class="doccomment">/// The state in which this bill was introduced.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>state: State,
     <span class="doccomment">/// Legislators sponsoring the bill.
     </span><span class="attr">#[resource(inverse(sponsored_bills))]
@@ -225,14 +249,19 @@
     <span class="doccomment">/// The hash of this legislator in Legiscan, for change detection.
     </span><span class="kw">pub </span>legiscan_hash: String,
     <span class="doccomment">/// The legislator&#39;s first name.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>first_name: String,
     <span class="doccomment">/// The legislator&#39;s middle name.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>middle_name: String,
     <span class="doccomment">/// The legislator&#39;s last name.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>last_name: String,
     <span class="doccomment">/// The district in `state` which the legislator represents.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>district: District,
     <span class="doccomment">/// The legislator&#39;s political party.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>party: Party,
     <span class="doccomment">/// Bills the legislator has sponsored.
     </span><span class="attr">#[resource(inverse(sponsors))]
@@ -249,8 +278,10 @@
     /// This is frequently a single letter as in &quot;R&quot; (for Republican) or &quot;D&quot; (for Democrat). For
     /// obscure parties, though, this may be as long as the full name of the party.
     </span><span class="attr">#[resource(primary)]
+    #[resource(searchable)]
     </span><span class="kw">pub </span>abbreviation: String,
     <span class="doccomment">/// The full name of the party.
+    </span><span class="attr">#[resource(searchable)]
     </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// State lawmakers who are members of this party.
     </span><span class="kw">pub </span>members: BelongsTo&lt;Legislator&gt;,
@@ -262,6 +293,7 @@
     <span class="kw">pub </span>id: Id,
     <span class="doccomment">/// A short name for the issue.
     </span><span class="attr">#[resource(primary)]
+    #[resource(searchable)]
     </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// Bills pertaining to this issue.
     </span><span class="kw">pub </span>bills: Many&lt;Bill&gt;,
