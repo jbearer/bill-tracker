@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"model":[["impl <a class=\"trait\" href=\"https://docs.rs/serde/1.0.164/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a> for <a class=\"enum\" href=\"model/legiscan/enum.State.html\" title=\"enum model::legiscan::State\">State</a>"]]
+"model":[["impl <a class=\"trait\" href=\"https://docs.rs/serde/1.0.166/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a> for <a class=\"enum\" href=\"model/legiscan/enum.State.html\" title=\"enum model::legiscan::State\">State</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
