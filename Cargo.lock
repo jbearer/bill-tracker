@@ -2431,7 +2431,7 @@ checksum = "436b050e76ed2903236f032a59761c1eb99e1b0aead2c257922771dab1fc8c78"
 [[package]]
 name = "relational-graphql"
 version = "0.1.0"
-source = "git+https://github.com/jbearer/relational-graphql.git#9112b03356b55a4c5688217b7ac5193ed1c24d2e"
+source = "git+https://github.com/jbearer/relational-graphql.git#ce1a8858679d506524c3d5ae5cf6ef20e2fb02e0"
 dependencies = [
  "async-graphql",
  "async-postgres",
@@ -2458,7 +2458,7 @@ dependencies = [
 [[package]]
 name = "relational-graphql-derive"
 version = "0.1.0"
-source = "git+https://github.com/jbearer/relational-graphql.git#9112b03356b55a4c5688217b7ac5193ed1c24d2e"
+source = "git+https://github.com/jbearer/relational-graphql.git#ce1a8858679d506524c3d5ae5cf6ef20e2fb02e0"
 dependencies = [
  "convert_case 0.6.0",
  "itertools",
