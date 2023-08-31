@@ -13,7 +13,7 @@ anyhow = "1.0"
 async-std = "1.12"
 async-trait = "0.1"
 base64 = "0.21"
-clap = { version = "4.3", features = ["derive", "env"] }
+clap = { version = "4.4", features = ["derive", "env"] }
 copy_dir = "0.1"
 derive_more = "0.99"
 futures = "0.3"
