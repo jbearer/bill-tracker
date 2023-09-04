@@ -27,7 +27,7 @@ jobs:
         name: Checkout Repository
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v21
+        uses: cachix/install-nix-action@v23
 
       - name: Install Node Packages
         run: nix develop -c npm install
